@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bg">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="My Fast">
 
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 
@@ -32,28 +32,28 @@
             <circle id="ringProgress" class="ring-progress" cx="130" cy="130" r="115"></circle>
           </svg>
           <div class="ring-center">
-            <span id="statusLabel" class="status-label">Not fasting</span>
+            <span id="statusLabel" class="status-label" data-i18n="not_fasting">Not fasting</span>
             <span id="elapsedTime" class="elapsed-time">00:00:00</span>
             <span id="subLabel" class="sub-label">Tap start to begin</span>
           </div>
         </div>
         <div class="hero-pills">
           <span id="finishTime" class="hero-pill hidden"></span>
-          <button id="editStartBtn" class="hero-pill hero-pill-btn hidden">Edit start</button>
+          <button id="editStartBtn" class="hero-pill hero-pill-btn hidden" data-i18n="edit_start">Edit start</button>
         </div>
       </div>
 
-      <div class="group-title">Goal</div>
+      <div class="group-title" data-i18n="goal">Goal</div>
       <div id="targetPicker" class="chip-row target-picker">
         <button class="chip preset" data-hours="16">16:8</button>
         <button class="chip preset" data-hours="18">18:6</button>
         <button class="chip preset" data-hours="20">20:4</button>
         <button class="chip preset" data-hours="24">OMAD</button>
-        <button class="chip preset" data-hours="custom">Custom</button>
+        <button class="chip preset" data-hours="custom" data-i18n="custom">Custom</button>
       </div>
       <div id="customTargetWrap" class="custom-target-wrap hidden">
         <input type="number" id="customTargetInput" min="1" max="72" step="0.5" value="16" inputmode="decimal">
-        <span>hours</span>
+        <span data-i18n="hours">hours</span>
       </div>
 
       <button id="mainActionBtn" class="btn btn-primary main-action-btn">Start Fast</button>
@@ -61,109 +61,116 @@
 
     <!-- HISTORY -->
     <section id="historyView" class="view">
-      <h1 class="page-title">History</h1>
+      <h1 class="page-title" data-i18n="history">History</h1>
 
-      <div class="group-title">All time</div>
+      <div class="group-title" data-i18n="all_time">All time</div>
       <div class="stats-row">
         <div class="stat-box">
           <span id="statAvg" class="stat-value">0h</span>
-          <span class="stat-label">Average</span>
+          <span class="stat-label" data-i18n="average">Average</span>
         </div>
         <div class="stat-box">
           <span id="statCount" class="stat-value">0</span>
-          <span class="stat-label">Fasts</span>
+          <span class="stat-label" data-i18n="fasts">Fasts</span>
         </div>
         <div class="stat-box">
           <span id="statLongest" class="stat-value">0h</span>
-          <span class="stat-label">Longest</span>
+          <span class="stat-label" data-i18n="longest">Longest</span>
         </div>
       </div>
 
       <div class="chart-card">
         <div class="chart-card-header">
-          <button id="chartPrevMonthBtn" class="month-nav-btn" aria-label="Previous month">
+          <button id="chartPrevMonthBtn" class="month-nav-btn" aria-label="Previous month" data-i18n-aria="prev_month">
             <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
           </button>
           <div class="month-head">
             <span id="chartMonthLabel" class="month-nav-label">Month</span>
             <span id="monthMeta" class="month-meta"></span>
           </div>
-          <button id="chartNextMonthBtn" class="month-nav-btn" aria-label="Next month">
+          <button id="chartNextMonthBtn" class="month-nav-btn" aria-label="Next month" data-i18n-aria="next_month">
             <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
           </button>
         </div>
         <div class="chart-wrap">
-          <div id="chartBars" class="chart-bars" role="group" aria-label="Hours fasted per day"></div>
-          <div class="chart-axis" aria-hidden="true">
-            <span>24h</span><span>18h</span><span>12h</span><span>6h</span><span>0h</span>
+          <div id="chartBars" class="chart-bars" role="group" aria-label="Hours fasted per day" data-i18n-aria="chart_aria"></div>
+          <div class="chart-axis" id="chartAxis" aria-hidden="true">
+            <span>24</span><span>18</span><span>12</span><span>6</span><span>0</span>
           </div>
         </div>
         <div id="chartLabels" class="chart-labels" aria-hidden="true"></div>
         <div id="chartInfo" class="chart-info">Tap a day to see its hours</div>
         <div class="chart-legend">
-          <span><i class="lg-hit"></i>Goal met</span>
-          <span><i class="lg-under"></i>Under goal</span>
+          <span><i class="lg-hit"></i><span data-i18n="legend_hit">Goal met</span></span>
+          <span><i class="lg-under"></i><span data-i18n="legend_under">Under goal</span></span>
           <span><i class="lg-line"></i><span id="legendGoal">Goal</span></span>
         </div>
       </div>
 
       <div class="section-title">
         <span id="listTitle">Fasts</span>
-        <button id="addFastBtn" class="pill-btn">+ Add</button>
+        <button id="addFastBtn" class="pill-btn" data-i18n="add">+ Add</button>
       </div>
       <ul id="historyList" class="group history-list"></ul>
       <div id="historyEmpty" class="empty-state hidden">
         <div class="empty-title" id="historyEmptyTitle">No fasts this month</div>
-        <div class="empty-copy">Use the arrows to see other months.</div>
+        <div class="empty-copy" data-i18n="use_arrows">Use the arrows to see other months.</div>
       </div>
     </section>
 
     <!-- SETTINGS -->
     <section id="settingsView" class="view">
-      <h1 class="page-title">Settings</h1>
+      <h1 class="page-title" data-i18n="settings">Settings</h1>
 
       <div class="profile">
         <div id="profileAvatar" class="profile-avatar">?</div>
         <div class="profile-text">
           <div id="accountEmail" class="profile-email"></div>
-          <div class="profile-status">Your fasts are private to you</div>
+          <div class="profile-status" data-i18n="private_note">Your fasts are private to you</div>
         </div>
       </div>
 
-      <div class="group-title">Appearance</div>
+      <div class="group-title" data-i18n="appearance">Appearance</div>
       <div class="group">
         <div class="row">
-          <div class="row-text"><div class="row-title">Theme</div></div>
+          <div class="row-text"><div class="row-title" data-i18n="theme">Theme</div></div>
           <div id="themeToggle" class="segmented">
-            <button class="theme-btn" data-theme="light">Light</button>
-            <button class="theme-btn" data-theme="dark">Dark</button>
-            <button class="theme-btn" data-theme="system">Auto</button>
+            <button class="theme-btn" data-theme="light" data-i18n="theme_light">Light</button>
+            <button class="theme-btn" data-theme="dark" data-i18n="theme_dark">Dark</button>
+            <button class="theme-btn" data-theme="system" data-i18n="theme_auto">Auto</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="row-text"><div class="row-title" data-i18n="language">Language</div></div>
+          <div id="langToggle" class="segmented">
+            <button data-lang="bg">БГ</button>
+            <button data-lang="en">EN</button>
           </div>
         </div>
       </div>
 
-      <div class="group-title">Notifications</div>
+      <div class="group-title" data-i18n="notifications">Notifications</div>
       <div class="group">
         <div class="row">
           <div class="row-text">
-            <div class="row-title">Notifications</div>
+            <div class="row-title" data-i18n="notifications">Notifications</div>
             <div class="row-sub" id="notifStatusText">Off</div>
           </div>
-          <button id="settingsNotifToggle" class="toggle-switch" role="switch" aria-checked="false" aria-label="Notifications">
+          <button id="settingsNotifToggle" class="toggle-switch" role="switch" aria-checked="false" aria-label="Notifications" data-i18n-aria="notifications">
             <span class="toggle-knob"></span>
           </button>
         </div>
         <div class="row">
           <div class="row-text">
-            <div class="row-title">Remind me to start</div>
+            <div class="row-title" data-i18n="remind_start">Remind me to start</div>
             <div class="row-sub" id="startReminderText">Off</div>
           </div>
-          <button id="startReminderToggle" class="toggle-switch" role="switch" aria-checked="false" aria-label="Remind me to start">
+          <button id="startReminderToggle" class="toggle-switch" role="switch" aria-checked="false" aria-label="Remind me to start" data-i18n-aria="remind_start">
             <span class="toggle-knob"></span>
           </button>
         </div>
         <div id="startReminderTimeRow" class="row hidden">
-          <div class="row-text"><div class="row-title">Time</div></div>
+          <div class="row-text"><div class="row-title" data-i18n="time">Time</div></div>
           <div class="time-select">
             <select id="startReminderHour" class="row-select" aria-label="Hour"></select>
             <span>:</span>
@@ -172,43 +179,43 @@
         </div>
       </div>
 
-      <div class="group-title">Data</div>
+      <div class="group-title" data-i18n="data">Data</div>
       <div class="group">
         <button id="settingsExportBtn" class="row row-btn">
           <span class="avatar small"><svg viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg></span>
-          <span class="row-text"><span class="row-title">Export</span></span>
+          <span class="row-text"><span class="row-title" data-i18n="export">Export</span></span>
           <span class="chev"></span>
         </button>
         <button id="settingsImportBtn" class="row row-btn">
           <span class="avatar small"><svg viewBox="0 0 24 24"><path d="M12 15V4m0 11l-4-4m4 4l4-4M5 20h14" transform="rotate(180 12 12)"/></svg></span>
-          <span class="row-text"><span class="row-title">Import</span></span>
+          <span class="row-text"><span class="row-title" data-i18n="import">Import</span></span>
           <span class="chev"></span>
         </button>
         <button id="resetDataBtn" class="row row-btn row-danger">
           <span class="avatar small a-red"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></span>
-          <span class="row-text"><span class="row-title">Clear all data</span></span>
+          <span class="row-text"><span class="row-title" data-i18n="clear_all">Clear all data</span></span>
         </button>
       </div>
-      <p class="group-note">Your fasts are saved in your account and backed up automatically every night.</p>
+      <p class="group-note" data-i18n="backup_note">Your fasts are saved in your account and backed up automatically every night.</p>
 
       <div id="peopleSection" class="hidden">
-        <div class="group-title">People</div>
+        <div class="group-title" data-i18n="people">People</div>
         <ul id="inviteList" class="group invite-list"></ul>
         <div class="invite-add">
           <input type="email" id="inviteEmailInput" placeholder="friend@example.com" autocomplete="off" autocapitalize="none" spellcheck="false">
-          <button id="inviteBtn" class="pill-btn">Invite</button>
+          <button id="inviteBtn" class="pill-btn" data-i18n="invite">Invite</button>
         </div>
-        <p class="group-note">Invite someone, then send them the app link and their code. Their fasts are private.</p>
+        <p class="group-note" data-i18n="people_note">Invite someone, then send them the app link and their code. Their fasts are private.</p>
       </div>
 
-      <div class="group-title">Account</div>
+      <div class="group-title" data-i18n="account">Account</div>
       <div class="group">
         <button id="changePasswordBtn" class="row row-btn">
-          <span class="row-text"><span class="row-title">Change password</span></span>
+          <span class="row-text"><span class="row-title" data-i18n="change_password">Change password</span></span>
           <span class="chev"></span>
         </button>
         <button id="logoutBtn" class="row row-btn row-danger">
-          <span class="row-text"><span class="row-title">Log out</span></span>
+          <span class="row-text"><span class="row-title" data-i18n="log_out">Log out</span></span>
         </button>
       </div>
     </section>
@@ -218,15 +225,15 @@
   <nav class="tabbar" aria-label="Menu">
     <button class="tab" data-view="timerView" aria-current="page">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5"/></svg>
-      <span>Home</span>
+      <span data-i18n="tab_home">Home</span>
     </button>
     <button class="tab" data-view="historyView">
       <svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>
-      <span>History</span>
+      <span data-i18n="tab_history">History</span>
     </button>
     <button class="tab" data-view="settingsView">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
-      <span>Settings</span>
+      <span data-i18n="tab_settings">Settings</span>
     </button>
   </nav>
 </div>
@@ -235,28 +242,29 @@
 
 <!-- LOGIN -->
 <div id="loginScreen" class="login-screen hidden">
+  <button type="button" id="loginLang" class="lang-switch" aria-label="Language / Език">EN</button>
   <form id="loginForm" class="login-card" novalidate>
     <img src="icons/icon-192-v2.png" alt="" class="login-logo">
     <h1 class="login-title">My Fast</h1>
-    <p class="login-sub">Your fasting timer. Log in to see your fasts.</p>
+    <p class="login-sub" data-i18n="login_sub">Your fasting timer. Log in to see your fasts.</p>
     <div class="field">
-      <label for="loginEmail">Email</label>
+      <label for="loginEmail" data-i18n="email">Email</label>
       <input id="loginEmail" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false">
     </div>
     <div class="field">
-      <label for="loginPassword">Password</label>
+      <label for="loginPassword" data-i18n="password">Password</label>
       <input id="loginPassword" type="password" autocomplete="current-password" minlength="8">
     </div>
     <div class="field hidden" id="inviteCodeField">
-      <label for="inviteCodeInput">Invite code</label>
+      <label for="inviteCodeInput" data-i18n="invite_code">Invite code</label>
       <input id="inviteCodeInput" type="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="6">
     </div>
     <p id="loginMsg" class="login-msg" role="alert"></p>
     <div class="modal-actions modal-actions-stack">
-      <button type="submit" id="loginBtn" class="btn btn-primary">Log in</button>
+      <button type="submit" id="loginBtn" class="btn btn-primary" data-i18n="log_in">Log in</button>
       <button type="button" id="registerBtn" class="btn btn-secondary">I have an invite</button>
     </div>
-    <button type="button" id="forgotBtn" class="link-btn">Forgot password?</button>
+    <button type="button" id="forgotBtn" class="link-btn" data-i18n="forgot">Forgot password?</button>
   </form>
 </div>
 
@@ -264,14 +272,14 @@
 <div id="passwordModal" class="modal hidden">
   <div class="modal-card">
     <div class="sheet-grab"></div>
-    <h3>Change password</h3>
+    <h3 data-i18n="change_password">Change password</h3>
     <div class="field">
-      <label for="newPasswordInput">New password (at least 8 characters)</label>
+      <label for="newPasswordInput" data-i18n="new_password_label">New password (at least 8 characters)</label>
       <input type="password" id="newPasswordInput" autocomplete="new-password" minlength="8">
     </div>
     <div class="modal-actions">
-      <button id="passwordCancelBtn" class="btn btn-secondary">Cancel</button>
-      <button id="passwordSaveBtn" class="btn btn-primary">Save</button>
+      <button id="passwordCancelBtn" class="btn btn-secondary" data-i18n="cancel">Cancel</button>
+      <button id="passwordSaveBtn" class="btn btn-primary" data-i18n="save">Save</button>
     </div>
   </div>
 </div>
@@ -280,14 +288,14 @@
 <div id="editModal" class="modal hidden">
   <div class="modal-card">
     <div class="sheet-grab"></div>
-    <h3>Edit start time</h3>
+    <h3 data-i18n="edit_start_title">Edit start time</h3>
     <div class="field">
-      <label>Started at</label>
+      <label data-i18n="started_at">Started at</label>
       <div class="dt-field" id="editStartInput"><button type="button" class="dt-btn dt-date"></button><button type="button" class="dt-btn dt-time"></button></div>
     </div>
     <div class="modal-actions">
-      <button id="editCancelBtn" class="btn btn-secondary">Cancel</button>
-      <button id="editSaveBtn" class="btn btn-primary">Save</button>
+      <button id="editCancelBtn" class="btn btn-secondary" data-i18n="cancel">Cancel</button>
+      <button id="editSaveBtn" class="btn btn-primary" data-i18n="save">Save</button>
     </div>
   </div>
 </div>
@@ -296,14 +304,14 @@
 <div id="endFastModal" class="modal hidden">
   <div class="modal-card">
     <div class="sheet-grab"></div>
-    <h3>End fast</h3>
+    <h3 data-i18n="end_fast_title">End fast</h3>
     <div class="field">
-      <label>Finished at</label>
+      <label data-i18n="finished_at">Finished at</label>
       <div class="dt-field" id="endFastInput"><button type="button" class="dt-btn dt-date"></button><button type="button" class="dt-btn dt-time"></button></div>
     </div>
     <div class="modal-actions">
-      <button id="endFastCancelBtn" class="btn btn-secondary">Cancel</button>
-      <button id="endFastConfirmBtn" class="btn btn-danger">End Fast</button>
+      <button id="endFastCancelBtn" class="btn btn-secondary" data-i18n="cancel">Cancel</button>
+      <button id="endFastConfirmBtn" class="btn btn-danger" data-i18n="end_btn">End Fast</button>
     </div>
   </div>
 </div>
@@ -314,22 +322,22 @@
     <div class="sheet-grab"></div>
     <h3 id="fastEditTitle">Edit fast</h3>
     <div class="field">
-      <label>Start</label>
+      <label data-i18n="start">Start</label>
       <div class="dt-field" id="fastEditStartInput"><button type="button" class="dt-btn dt-date"></button><button type="button" class="dt-btn dt-time"></button></div>
     </div>
     <div class="field">
-      <label>End</label>
+      <label data-i18n="end">End</label>
       <div class="dt-field" id="fastEditEndInput"><button type="button" class="dt-btn dt-date"></button><button type="button" class="dt-btn dt-time"></button></div>
     </div>
     <div class="field">
-      <label for="fastEditTargetInput">Goal (hours)</label>
+      <label for="fastEditTargetInput" data-i18n="goal_hours">Goal (hours)</label>
       <input type="number" id="fastEditTargetInput" min="1" max="72" step="0.5" inputmode="decimal">
     </div>
     <div class="modal-actions">
-      <button id="fastEditCancelBtn" class="btn btn-secondary">Cancel</button>
-      <button id="fastEditSaveBtn" class="btn btn-primary">Save</button>
+      <button id="fastEditCancelBtn" class="btn btn-secondary" data-i18n="cancel">Cancel</button>
+      <button id="fastEditSaveBtn" class="btn btn-primary" data-i18n="save">Save</button>
     </div>
-    <button id="fastEditDeleteBtn" class="btn btn-text-danger full">Delete this fast</button>
+    <button id="fastEditDeleteBtn" class="btn btn-text-danger full" data-i18n="delete_fast">Delete this fast</button>
   </div>
 </div>
 
@@ -344,7 +352,7 @@
     </div>
     <div class="cal-grid" id="calGrid"></div>
     <div class="modal-actions">
-      <button type="button" id="calToday" class="btn btn-secondary">Today</button>
+      <button type="button" id="calToday" class="btn btn-secondary" data-i18n="today">Today</button>
     </div>
   </div>
 </div>
@@ -354,13 +362,13 @@
   <div class="modal-card">
     <div class="sheet-grab"></div>
     <h3 id="timeTitle">19:30</h3>
-    <div class="group-title">Hour</div>
+    <div class="group-title" data-i18n="hour">Hour</div>
     <div class="time-grid" id="hourGrid"></div>
-    <div class="group-title">Minute</div>
+    <div class="group-title" data-i18n="minute">Minute</div>
     <div class="time-grid" id="minuteGrid"></div>
     <div class="modal-actions">
-      <button type="button" id="timeNow" class="btn btn-secondary">Now</button>
-      <button type="button" id="timeDone" class="btn btn-primary">Done</button>
+      <button type="button" id="timeNow" class="btn btn-secondary" data-i18n="now">Now</button>
+      <button type="button" id="timeDone" class="btn btn-primary" data-i18n="done">Done</button>
     </div>
   </div>
 </div>
@@ -372,13 +380,14 @@
     <h3 id="dialogTitle"></h3>
     <p id="dialogMessage" class="dialog-message"></p>
     <div class="modal-actions">
-      <button id="dialogCancelBtn" class="btn btn-secondary">Cancel</button>
+      <button id="dialogCancelBtn" class="btn btn-secondary" data-i18n="cancel">Cancel</button>
       <button id="dialogOkBtn" class="btn btn-primary">OK</button>
     </div>
   </div>
 </div>
 
 <script src="supabase.js"></script>
-<script src="app.js?v=5"></script>
+<script src="i18n.js?v=6"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

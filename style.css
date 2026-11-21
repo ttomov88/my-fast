@@ -435,3 +435,14 @@ main {
 /* people */
 .invite-list .inv-status { display: block; font-size: 12.5px; font-weight: 500; color: var(--text-2); margin-top: 2px; }
 .invite-list .inv-status b { color: var(--accent); letter-spacing: 1px; user-select: all; }
+
+/* Stat cards: big numbers, small units, always one line */
+.stat-value { white-space: nowrap; font-size: 22px; }
+.stat-value small { font-size: 13px; font-weight: 600; color: var(--text-2); margin-left: 1px; letter-spacing: 0; }
+
+/* Language switch on the login screen */
+.lang-switch {
+  position: absolute; top: max(16px, env(safe-area-inset-top)); right: 16px;
+  border: none; background: var(--surface); color: var(--text); font-weight: 600; font-size: 14px;
+  padding: 9px 14px; border-radius: 999px; cursor: pointer;
+}

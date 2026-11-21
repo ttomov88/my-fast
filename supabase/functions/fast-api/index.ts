@@ -103,9 +103,23 @@ function inviteCode(): string {
   return Array.from(crypto.getRandomValues(new Uint32Array(6)), x => set[x % set.length]).join("");
 }
 
-function fmtHours(h: number) {
-  const whole = Math.floor(h), min = Math.round((h - whole) * 60);
-  return min ? `${whole}h ${min}m` : `${whole}h`;
+function fmtHours(h: number, lang: string) {
+  let whole = Math.floor(h), min = Math.round((h - whole) * 60);
+  if (min === 60) { whole++; min = 0; }
+  const [hu, mu] = lang === "en" ? ["h", "m"] : ["ч", "м"];
+  return min ? `${whole}${hu} ${min}${mu}` : `${whole}${hu}`;
+}
+
+// Notifications in each person's language (Bulgarian unless they chose English).
+function message(kind: string, hours: string, lang: string) {
+  if (lang === "en") {
+    return kind === "goal"
+      ? { title: "Goal reached 🎉", body: `You've fasted ${hours}. Keep going or end your fast.`, tag: "my-fast-goal" }
+      : { title: "Time to start fasting", body: `Tap to start your ${hours} fast.`, tag: "my-fast-start" };
+  }
+  return kind === "goal"
+    ? { title: "Целта е постигната 🎉", body: `Фастът ви е ${hours}. Продължете или го приключете.`, tag: "my-fast-goal" }
+    : { title: "Време е за фаст", body: `Докоснете, за да започнете ${hours} фаст.`, tag: "my-fast-start" };
 }
 
 async function push(req: Request, body: any) {
@@ -115,10 +129,8 @@ async function push(req: Request, body: any) {
   const vapid = await getVapid();
   const report = [];
   for (const it of items) {
-    const hours = fmtHours(Number(it.hours) || 0);
-    const msg = it.kind === "goal"
-      ? { title: "Goal reached 🎉", body: `You've fasted ${hours}. Keep going or end your fast.`, tag: "my-fast-goal" }
-      : { title: "Time to start fasting", body: `Tap to start your ${hours} fast.`, tag: "my-fast-start" };
+    const lang = it.lang === "en" ? "en" : "bg";
+    const msg = message(it.kind, fmtHours(Number(it.hours) || 0, lang), lang);
     report.push({ kind: it.kind, ...(await pushToUser(String(it.user_id), msg, vapid)) });
   }
   return json({ sent: report });

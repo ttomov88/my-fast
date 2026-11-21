@@ -19,6 +19,8 @@
   const RING_COLOR = '#FFFFFF';        // on the teal timer card
   const RING_DONE_COLOR = '#FFD27A';   // goal reached
 
+  const I = window.MF_I18N;
+  const t = (k, p) => I.t(k, p);
   const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { storageKey: AUTH_KEY, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
   }) : null;
@@ -148,7 +150,7 @@
   // ---------- Generic styled dialog (replaces confirm()/alert()) ----------
   let dialogResolve = null;
 
-  function showDialog({ title, message, okText = 'OK', cancelText = 'Cancel', showCancel = true, danger = false }) {
+  function showDialog({ title, message, okText = t('ok'), cancelText = t('cancel'), showCancel = true, danger = false }) {
     return new Promise((resolve) => {
       el.dialogTitle.textContent = title;
       el.dialogMessage.textContent = message;
@@ -175,7 +177,7 @@
   el.dialogCancelBtn.addEventListener('click', () => closeDialog(false));
 
   function showAlert(title, message) {
-    return showDialog({ title, message, showCancel: false, okText: 'OK' });
+    return showDialog({ title, message, showCancel: false, okText: t('ok') });
   }
 
   // ---------- Talking to the account ----------
@@ -204,7 +206,7 @@
   // Every change is saved to the account straight away. If that fails (no internet), nothing
   // changes on screen and you're told, so the phone and the account never disagree.
   let busy = false;
-  async function saveChange(fn, failTitle = "Couldn't save") {
+  async function saveChange(fn, failTitle = t('cant_save')) {
     if (busy) return false;
     busy = true;
     try {
@@ -221,11 +223,11 @@
 
   function friendlyError(e) {
     const msg = String((e && (e.message || e)) || '');
-    if (e && e.code === '23505') return 'That fast is already in your history.';
-    if (/no_active_fast/.test(msg)) return 'This fast was already ended, maybe on another device. Your history has been refreshed.';
-    if (/not_member/.test(msg)) return "Your account doesn't have access to My Fast.";
-    if (!navigator.onLine || /fetch|network/i.test(msg)) return "No internet connection. Try again when you're online.";
-    return 'Something went wrong. Please try again.';
+    if (e && e.code === '23505') return t('e_duplicate');
+    if (/no_active_fast/.test(msg)) return t('e_already_ended');
+    if (/not_member/.test(msg)) return t('e_not_member');
+    if (!navigator.onLine || /fetch|network/i.test(msg)) return t('e_offline');
+    return t('e_generic');
   }
 
   const rowToEntry = (r) => ({
@@ -250,15 +252,15 @@
   const PHONE_TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Sofia'; } catch (e) { return 'Europe/Sofia'; } })();
 
   async function fetchProfile() {
-    const cols = 'current_start, current_target, last_target, start_reminder, tz';
+    const cols = 'current_start, current_target, last_target, start_reminder, tz, lang';
     let p = must(await sb.from('fast_profiles').select(cols).maybeSingle());
     if (!p) {
       // Created on first use. Two devices opening at once may race: then just read the winner's row.
-      const ins = await sb.from('fast_profiles').insert({ user_id: state.userId, tz: PHONE_TZ }).select(cols).single();
+      const ins = await sb.from('fast_profiles').insert({ user_id: state.userId, tz: PHONE_TZ, lang: I.lang }).select(cols).single();
       p = ins.error && ins.error.code === '23505' ? must(await sb.from('fast_profiles').select(cols).single()) : must(ins);
     }
     // The start reminder follows the phone's time zone.
-    if (p.tz !== PHONE_TZ) updateProfile({ tz: PHONE_TZ }).then(() => {}, () => {});
+    if (p.tz !== PHONE_TZ || p.lang !== I.lang) updateProfile({ tz: PHONE_TZ, lang: I.lang }).then(() => {}, () => {});
     return p;
   }
 
@@ -414,19 +416,19 @@
     }
     const startDate = new Date(state.current.startISO);
     if (!endDate) {
-      await showAlert('Invalid time', 'Please enter a valid date and time.');
+      await showAlert(t('invalid_time'), t('enter_valid_time'));
       return;
     }
     if (endDate <= startDate) {
-      await showAlert('Invalid time', 'Finish time must be after the start time.');
+      await showAlert(t('invalid_time'), t('finish_after_start'));
       return;
     }
     if (endDate.getTime() > Date.now()) {
-      await showAlert('Invalid time', "Finish time can't be in the future.");
+      await showAlert(t('invalid_time'), t('finish_future'));
       return;
     }
     if ((endDate - startDate) / 3600000 > 720) {
-      await showAlert('Invalid time', "That's more than 30 days long — double check the date.");
+      await showAlert(t('invalid_time'), t('too_long'));
       return;
     }
     closeSheet(el.endFastModal);
@@ -440,7 +442,7 @@
       must(await updateProfile({ current_start: startISO, current_target: targetHours, last_target: targetHours, goal_notified_for: null }));
       state.current = { startISO, targetHours };
       state.lastTargetHours = targetHours;
-    }, "Couldn't start the fast");
+    }, t('cant_start'));
     if (ok) render();
   }
 
@@ -451,7 +453,7 @@
       state.history.unshift(rowToEntry(row));
       sortHistory();
       state.current = null;
-    }, "Couldn't end the fast");
+    }, t('cant_end'));
     if (ok) renderAll();
     else refresh();
   }
@@ -530,13 +532,13 @@
     el.settingsNotifToggle.classList.toggle('on', pushOn);
     el.settingsNotifToggle.setAttribute('aria-checked', String(pushOn));
     if (!pushSupported()) {
-      el.notifStatusText.textContent = 'Not supported on this browser';
+      el.notifStatusText.textContent = t('notif_unsupported');
     } else if (Notification.permission === 'denied') {
-      el.notifStatusText.textContent = 'Blocked in browser settings';
+      el.notifStatusText.textContent = t('notif_blocked');
     } else if (pushOn) {
-      el.notifStatusText.textContent = 'On · alert when you reach your goal';
+      el.notifStatusText.textContent = t('notif_on');
     } else {
-      el.notifStatusText.textContent = 'Off';
+      el.notifStatusText.textContent = t('notif_off');
     }
 
     const rem = state.startReminder;
@@ -547,10 +549,10 @@
       el.startReminderHour.value = rem.slice(0, 2);
       el.startReminderMinute.value = rem.slice(3, 5);
       el.startReminderText.textContent = pushOn
-        ? `Daily at ${rem}, if you're not fasting`
-        : `Daily at ${rem} · turn on notifications to get it`;
+        ? t('remind_daily', { t: rem })
+        : t('remind_need_notif', { t: rem });
     } else {
-      el.startReminderText.textContent = 'Off';
+      el.startReminderText.textContent = t('notif_off');
     }
 
     el.accountEmail.textContent = state.email || '';
@@ -563,7 +565,7 @@
   el.settingsNotifToggle.addEventListener('click', async () => {
     if (pushBusy) return;
     if (pushSupported() && Notification.permission === 'denied') {
-      await showAlert('Notifications blocked', 'Notifications are blocked for this app. Allow them in your phone or browser settings first.');
+      await showAlert(t('notif_blocked_title'), t('notif_blocked_text'));
       return;
     }
     pushBusy = true;
@@ -572,8 +574,8 @@
       else await subscribePush();
     } catch (e) {
       const msg = e && e.message;
-      if (msg === 'unsupported') await showAlert('Not supported', "This browser can't receive notifications.");
-      else if (msg !== 'denied') await showAlert("Couldn't change notifications", 'Check your internet connection and try again.');
+      if (msg === 'unsupported') await showAlert(t('unsupported_title'), t('unsupported_text'));
+      else if (msg !== 'denied') await showAlert(t('notif_failed_title'), t('check_internet'));
     } finally {
       pushBusy = false;
       await refreshPushState();
@@ -628,12 +630,12 @@
       const now = Date.now();
       if (!newDate || newDate.getTime() >= now) {
         closeSheet(el.editModal);
-        await showAlert('Invalid time', 'Start time must be in the past.');
+        await showAlert(t('invalid_time'), t('start_past'));
         return;
       }
       if ((now - newDate.getTime()) / 3600000 > 720) {
         closeSheet(el.editModal);
-        await showAlert('Invalid time', "That's more than 30 days ago — double check the date.");
+        await showAlert(t('invalid_time'), t('start_too_old'));
         return;
       }
       closeSheet(el.editModal);
@@ -670,9 +672,9 @@
   let pickField = null, calMonth = null, pickTime = null;
 
   function renderCalendar() {
-    calTitle.textContent = calMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    calTitle.textContent = `${t('months')[calMonth.getMonth()]} ${calMonth.getFullYear()}`;
     calGrid.innerHTML = '';
-    ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].forEach(w => {
+    t('cal_weekdays').forEach(w => {
       const h = document.createElement('div');
       h.className = 'cal-wd';
       h.textContent = w;
@@ -778,10 +780,10 @@
       const now = new Date();
       const defaultStart = new Date(now.getTime() - (state.lastTargetHours || 16) * 3600000);
       entry = { startISO: defaultStart.toISOString(), endISO: now.toISOString(), targetHours: state.lastTargetHours || 16 };
-      el.fastEditTitle.textContent = 'Add fast';
+      el.fastEditTitle.textContent = t('add_fast');
       el.fastEditDeleteBtn.classList.add('hidden');
     } else {
-      el.fastEditTitle.textContent = 'Edit fast';
+      el.fastEditTitle.textContent = t('edit_fast');
       el.fastEditDeleteBtn.classList.remove('hidden');
     }
     setDT(el.fastEditStartInput, new Date(entry.startISO));
@@ -802,23 +804,23 @@
     const targetVal = Number(el.fastEditTargetInput.value);
 
     if (!startDate || !endDate || !targetVal || targetVal <= 0) {
-      await showAlert('Missing info', 'Please fill in start, end, and a goal greater than 0.');
+      await showAlert(t('missing_info'), t('missing_info_text'));
       return;
     }
     if (endDate <= startDate) {
-      await showAlert('Invalid times', 'End time must be after start time.');
+      await showAlert(t('invalid_times'), t('end_after_start'));
       return;
     }
     if (endDate.getTime() > Date.now()) {
-      await showAlert('Invalid times', "End time can't be in the future.");
+      await showAlert(t('invalid_times'), t('end_future'));
       return;
     }
     if ((endDate - startDate) / 3600000 > 720) {
-      await showAlert('Invalid times', 'That fast is longer than 30 days — double check the start and end dates.');
+      await showAlert(t('invalid_times'), t('fast_too_long'));
       return;
     }
     if (targetVal > 720) {
-      await showAlert('Invalid goal', 'The goal must be 720 hours or less.');
+      await showAlert(t('invalid_goal'), t('goal_max'));
       return;
     }
 
@@ -859,27 +861,25 @@
 
   function render() {
     if (state.current) {
-      el.mainActionBtn.textContent = 'End Fast';
+      el.mainActionBtn.textContent = t('end_fast');
       el.mainActionBtn.classList.add('stop');
       el.editStartBtn.classList.remove('hidden');
-      el.statusLabel.textContent = 'Fasting';
+      el.statusLabel.textContent = t('fasting');
       el.targetPicker.classList.add('locked');
       el.customTargetInput.disabled = true;
       setPresetUI(state.current.targetHours);
 
       const finishDate = new Date(new Date(state.current.startISO).getTime() + state.current.targetHours * 3600000);
-      const finishStr = finishDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
-      const finishWeekday = finishDate.toLocaleDateString(undefined, { weekday: 'short' });
-      el.finishTime.textContent = `Goal at ${finishStr} ${finishWeekday}`;
+      el.finishTime.textContent = t('goal_at', { time: fmtTime(finishDate), day: t('weekdays_short')[finishDate.getDay()] });
       el.finishTime.classList.remove('hidden');
 
       startTick();
     } else {
-      el.mainActionBtn.textContent = 'Start Fast';
+      el.mainActionBtn.textContent = t('start_fast');
       el.mainActionBtn.classList.remove('stop');
       el.editStartBtn.classList.add('hidden');
-      el.statusLabel.textContent = 'Not fasting';
-      el.subLabel.textContent = 'Tap Start Fast to begin';
+      el.statusLabel.textContent = t('not_fasting');
+      el.subLabel.textContent = t('tap_start');
       el.elapsedTime.textContent = '00:00:00';
       el.finishTime.classList.add('hidden');
       el.finishTime.textContent = '';
@@ -914,12 +914,12 @@
 
     if (elapsedMs >= targetMs) {
       el.ringProgress.style.stroke = RING_DONE_COLOR;
-      el.statusLabel.textContent = 'Goal reached 🎉';
-      el.subLabel.textContent = `+${formatElapsed(elapsedMs - targetMs)} over`;
+      el.statusLabel.textContent = t('goal_reached');
+      el.subLabel.textContent = t('over', { t: formatElapsed(elapsedMs - targetMs) });
     } else {
       el.ringProgress.style.stroke = RING_COLOR;
-      el.statusLabel.textContent = 'Fasting';
-      el.subLabel.textContent = `${formatElapsed(targetMs - elapsedMs)} left`;
+      el.statusLabel.textContent = t('fasting');
+      el.subLabel.textContent = t('left', { t: formatElapsed(targetMs - elapsedMs) });
     }
   }
 
@@ -950,7 +950,7 @@
 
   const timeOpts = { hour: '2-digit', minute: '2-digit', hour12: false };
   function formatRowDate(d) {
-    return `${d.toLocaleDateString(undefined, { weekday: 'short' })} ${d.getDate()} ${d.toLocaleDateString(undefined, { month: 'short' })}`;
+    return `${t('weekdays_short')[d.getDay()]} ${d.getDate()} ${t('months_short')[d.getMonth()]}`;
   }
 
   function renderHistory() {
@@ -958,16 +958,16 @@
     const month = currentChartMonth;
     const items = state.history.filter(e => inMonth(new Date(e.startISO), month));
     const usual = usualGoal();
-    const monthName = month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    const monthName = `${t('months')[month.getMonth()]} ${month.getFullYear()}`;
 
     if (items.length) {
       const avg = items.reduce((t, e) => t + durH(e), 0) / items.length;
-      el.monthMeta.textContent = `${items.length} fast${items.length === 1 ? '' : 's'} · avg ${formatHoursShort(avg)}`;
+      el.monthMeta.textContent = t('month_meta', { n: items.length, avg: formatHoursShort(avg) });
     } else {
-      el.monthMeta.textContent = 'No fasts';
+      el.monthMeta.textContent = t('no_fasts');
     }
-    el.listTitle.textContent = month.toLocaleDateString(undefined, { month: 'long' });
-    el.historyEmptyTitle.textContent = `No fasts in ${monthName}`;
+    el.listTitle.textContent = t('months')[month.getMonth()];
+    el.historyEmptyTitle.textContent = t('no_fasts_in', { month: monthName });
     el.historyEmpty.classList.toggle('hidden', items.length > 0);
 
     el.historyList.innerHTML = '';
@@ -977,19 +977,19 @@
       const hours = durH(entry);
       const pct = hours / entry.targetHours;
       const hit = pct >= 1;
-      const goalNote = entry.targetHours !== usual ? ` · goal ${formatHoursShort(entry.targetHours)}` : '';
+      const goalNote = entry.targetHours !== usual ? t('goal_note', { t: formatHoursShort(entry.targetHours) }) : '';
       const li = document.createElement('li');
       li.className = 'row row-btn';
       li.dataset.id = entry.id;
       li.tabIndex = 0;
       li.setAttribute('role', 'button');
       li.setAttribute('aria-label',
-        `${formatRowDate(start)}, ${formatHoursShort(hours)} of ${formatHoursShort(entry.targetHours)} goal${hit ? ', goal met' : ''}. Edit`);
+        t('row_aria', { date: formatRowDate(start), t: formatHoursShort(hours), goal: formatHoursShort(entry.targetHours), hit }));
       li.innerHTML = `
         ${ringAvatar(pct)}
         <span class="row-text">
           <span class="row-title">${formatRowDate(start)}</span>
-          <span class="row-sub">${start.toLocaleTimeString(undefined, timeOpts)} → ${end.toLocaleTimeString(undefined, timeOpts)}${goalNote}</span>
+          <span class="row-sub">${fmtTime(start)} → ${fmtTime(end)}${goalNote}</span>
         </span>
         <span class="row-right"><span class="row-value ${hit ? 'v-hit' : 'v-under'}">${formatHoursShort(hours)}</span></span>
       `;
@@ -1010,16 +1010,16 @@
     const id = editingFastId;
     if (id === null) return;
     const ok = await showDialog({
-      title: 'Delete this fast?',
-      message: "This removes it from your history. This can't be undone.",
-      okText: 'Delete',
+      title: t('delete_q'),
+      message: t('delete_text'),
+      okText: t('delete'),
       danger: true,
     });
     if (!ok) return;
     const saved = await saveChange(async () => {
       must(await sb.from('fasts').delete().eq('id', id));
       state.history = state.history.filter(x => x.id !== id);
-    }, "Couldn't delete");
+    }, t('cant_delete'));
     if (!saved) return;
     closeSheet(el.fastEditModal);
     renderHistory();
@@ -1030,19 +1030,27 @@
     let whole = Math.floor(h);
     let min = Math.round((h - whole) * 60);
     if (min === 60) { whole++; min = 0; }
-    return min > 0 ? `${whole}h ${min}m` : `${whole}h`;
+    return min > 0 ? `${whole}${t('h')} ${min}${t('m')}` : `${whole}${t('h')}`;
   }
 
   function dateKey(d) {
     return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
   }
 
+  // "38h 35m" with small units, so long values stay on one line in the stat cards.
+  function statHTML(h) {
+    let whole = Math.floor(h), min = Math.round((h - whole) * 60);
+    if (min === 60) { whole++; min = 0; }
+    const u = (x) => `<small>${x}</small>`;
+    return min > 0 ? `${whole}${u(t('h'))} ${min}${u(t('m'))}` : `${whole}${u(t('h'))}`;
+  }
+
   function renderStats() {
     const items = state.history;
     el.statCount.textContent = items.length;
     if (items.length === 0) {
-      el.statAvg.textContent = '0h';
-      el.statLongest.textContent = '0h';
+      el.statAvg.innerHTML = statHTML(0);
+      el.statLongest.innerHTML = statHTML(0);
       return;
     }
     let totalH = 0, longestH = 0;
@@ -1051,8 +1059,8 @@
       totalH += h;
       if (h > longestH) longestH = h;
     });
-    el.statAvg.textContent = formatHoursShort(totalH / items.length);
-    el.statLongest.textContent = formatHoursShort(longestH);
+    el.statAvg.innerHTML = statHTML(totalH / items.length);
+    el.statLongest.innerHTML = statHTML(longestH);
   }
 
   // ---------- Chart ----------
@@ -1111,12 +1119,12 @@
   function showDayInfo(idx) {
     const b = chartBuckets[idx];
     el.chartBars.querySelectorAll('.chart-bar-col').forEach((c, i) => c.classList.toggle('sel', i === idx));
-    if (!b) { el.chartInfo.textContent = 'Tap a day to see its hours'; return; }
-    const day = b.date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+    if (!b) { el.chartInfo.textContent = t('tap_day'); return; }
+    const day = formatRowDate(b.date);
     el.chartInfo.innerHTML = '';
-    el.chartInfo.append(`${day}: `);
+    el.chartInfo.append(t('day_info', { day }));
     const strong = document.createElement('b');
-    strong.textContent = b.value > 0 ? `${formatHoursShort(b.value)} fasted` : 'no fasting';
+    strong.textContent = b.value > 0 ? t('day_hours', { t: formatHoursShort(b.value) }) : t('day_none');
     el.chartInfo.append(strong);
   }
   el.chartBars.addEventListener('click', (e) => {
@@ -1133,10 +1141,11 @@
     chartBuckets = buckets;
     const goalHours = Math.min(24, state.lastTargetHours || 16);
 
-    el.chartMonthLabel.textContent = currentChartMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    el.chartMonthLabel.textContent = `${t('months')[currentChartMonth.getMonth()]} ${currentChartMonth.getFullYear()}`;
     el.chartNextMonthBtn.disabled = isSameMonth(currentChartMonth, new Date());
     el.chartPrevMonthBtn.disabled = currentChartMonth <= firstMonth();
-    el.legendGoal.textContent = `Goal ${formatHoursShort(goalHours)}`;
+    el.legendGoal.textContent = t('legend_goal', { t: formatHoursShort(goalHours) });
+    $('chartAxis').querySelectorAll('span').forEach((n, i) => { n.textContent = `${24 - i * 6}${t('h')}`; });
 
     el.chartBars.innerHTML = '';
     el.chartLabels.innerHTML = '';
@@ -1154,7 +1163,7 @@
       col.dataset.idx = idx;
       col.tabIndex = 0;
       col.setAttribute('role', 'button');
-      col.setAttribute('aria-label', `${b.date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}: ${formatHoursShort(b.value)}`);
+      col.setAttribute('aria-label', `${formatRowDate(b.date)}: ${formatHoursShort(b.value)}`);
       const bar = document.createElement('div');
       const pct = Math.max(0, Math.min(100, (b.value / 24) * 100));
       bar.className = 'chart-bar' + (b.value > 0 ? (b.value >= goalHours ? ' hit-goal' : ' has-value') : '');
@@ -1231,7 +1240,7 @@
 
   async function importData(data) {
     if (!data || !Array.isArray(data.history)) {
-      await showAlert('Import failed', "That file doesn't look like a My Fast export.");
+      await showAlert(t('import_failed'), t('import_bad_file'));
       return;
     }
     const { rows, skipped } = validEntries(data.history);
@@ -1239,20 +1248,19 @@
     let resume = false;
     if (cur) {
       resume = await showDialog({
-        title: 'Resume active fast?',
-        message: 'This file also has an in-progress fast. Import it as your active fast?',
-        okText: 'Resume',
+        title: t('resume_q'),
+        message: t('resume_text'),
+        okText: t('resume'),
       });
     }
     let added = 0;
     const ok = await saveChange(async () => {
       added = await uploadEntries(rows);
       if (resume) await setCurrentFrom(cur);
-    }, 'Import failed');
+    }, t('import_failed'));
     if (!ok) return;
     try { await loadFromServer(); } catch (e) {}
-    const skippedMsg = skipped > 0 ? ` (${skipped} skipped — missing or implausible data)` : '';
-    await showAlert('Import complete', `Imported ${added} fast${added === 1 ? '' : 's'}${resume ? ' and resumed your active fast' : ''}.${skippedMsg}`);
+    await showAlert(t('import_done'), t('import_done_text', { n: added, resumed: resume, skipped }));
   }
 
   // One time, after the first login on a phone that used the old phone-only version: its fasts
@@ -1269,7 +1277,7 @@
       try { localStorage.setItem(OLD_KEY + '_moved', raw); localStorage.removeItem(OLD_KEY); } catch (e) {}
       await loadFromServer();
       if (added || cur) {
-        await showAlert('Your fasts are in your account', `Moved ${added} fast${added === 1 ? '' : 's'}${cur ? ' and your active fast' : ''} from this phone into your account.`);
+        await showAlert(t('moved_title'), t('moved_text', { n: added, cur: !!cur }));
       }
     } catch (e) {
       // Not moved (e.g. no internet): the old data stays on the phone and this runs again next time.
@@ -1278,9 +1286,9 @@
 
   el.resetDataBtn.addEventListener('click', async () => {
     const ok = await showDialog({
-      title: 'Clear all data?',
-      message: "This deletes all logged fasts and any active fast from your account. This can't be undone.",
-      okText: 'Clear',
+      title: t('clear_q'),
+      message: t('clear_text'),
+      okText: t('clear'),
       danger: true,
     });
     if (!ok) return;
@@ -1289,7 +1297,7 @@
       must(await updateProfile({ current_start: null, current_target: null, goal_notified_for: null }));
       state.history = [];
       state.current = null;
-    }, "Couldn't clear");
+    }, t('cant_clear'));
     if (saved) renderAll();
   });
 
@@ -1333,21 +1341,21 @@
       name.textContent = p.email;
       const status = document.createElement('small');
       status.className = 'inv-status';
-      if (p.joined) status.textContent = 'Joined';
-      else if (p.code) { status.append('Invite code '); const b = document.createElement('b'); b.textContent = p.code; status.append(b); }
-      else status.textContent = 'Invited';
+      if (p.joined) status.textContent = t('joined');
+      else if (p.code) { status.append(t('invite_code_is')); const b = document.createElement('b'); b.textContent = p.code; status.append(b); }
+      else status.textContent = t('invited_status');
       name.appendChild(status);
       const actions = document.createElement('div');
       if (p.joined) {
         const reset = document.createElement('button');
         reset.className = 'text-btn accent';
-        reset.textContent = 'Reset password';
+        reset.textContent = t('reset_password');
         reset.dataset.reset = p.email;
         actions.append(reset);
       }
       const remove = document.createElement('button');
       remove.className = 'text-btn';
-      remove.textContent = 'Remove';
+      remove.textContent = t('remove');
       remove.dataset.remove = p.email;
       actions.append(remove);
       li.append(name, actions);
@@ -1357,27 +1365,27 @@
 
   el.inviteBtn.addEventListener('click', async () => {
     const email = el.inviteEmailInput.value.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { await showAlert('Invite', 'Enter a valid email address.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { await showAlert(t('invite_title'), t('invalid_email')); return; }
     const r = await api('invite', { email }).catch(() => ({ error: 'offline' }));
-    if (r.error) { await showAlert("Couldn't invite", 'Check your internet connection and try again.'); return; }
+    if (r.error) { await showAlert(t('cant_invite'), t('check_internet')); return; }
     el.inviteEmailInput.value = '';
     await loadInvites();
-    await showAlert('Invited', `Send ${email} this:\n\n${location.origin}${location.pathname}\nInvite code: ${r.code}\n\nThey tap "I have an invite", enter their email, choose a password and type the code. If they already use My Fleet, they just log in with that password.`);
+    await showAlert(t('invited_title'), t('invited_text', { email, link: location.origin + location.pathname, code: r.code }));
   });
 
   el.inviteList.addEventListener('click', async (e) => {
     const resetEmail = e.target.dataset && e.target.dataset.reset;
     const removeEmail = e.target.dataset && e.target.dataset.remove;
     if (resetEmail) {
-      if (!(await showDialog({ title: 'Reset password?', message: `Give ${resetEmail} a temporary password?`, okText: 'Reset' }))) return;
+      if (!(await showDialog({ title: t('reset_q'), message: t('reset_text', { email: resetEmail }), okText: t('reset') }))) return;
       const r = await api('adminReset', { email: resetEmail }).catch(() => ({ error: 'offline' }));
-      if (r.password) await showAlert('Temporary password', `${r.password}\n\nPass it on to ${resetEmail}. They can change it in Settings.`);
-      else if (r.error === 'not_registered') await showAlert('No account yet', `${resetEmail} hasn't created an account yet.`);
-      else await showAlert("Couldn't reset", 'Check your internet connection and try again.');
+      if (r.password) await showAlert(t('temp_pw_title'), t('temp_pw_text', { pw: r.password, email: resetEmail }));
+      else if (r.error === 'not_registered') await showAlert(t('no_account_title'), t('no_account_text', { email: resetEmail }));
+      else await showAlert(t('cant_reset'), t('check_internet'));
     } else if (removeEmail) {
-      if (!(await showDialog({ title: 'Remove access?', message: `${removeEmail} won't be able to use My Fast any more. Their fasts are kept.`, okText: 'Remove', danger: true }))) return;
+      if (!(await showDialog({ title: t('remove_q'), message: t('remove_text', { email: removeEmail }), okText: t('remove'), danger: true }))) return;
       const r = await api('uninvite', { email: removeEmail }).catch(() => ({ error: 'offline' }));
-      if (r.error) await showAlert("Couldn't remove", 'Check your internet connection and try again.');
+      if (r.error) await showAlert(t('cant_remove'), t('check_internet'));
       await loadInvites();
     }
   });
@@ -1390,11 +1398,11 @@
   el.passwordCancelBtn.addEventListener('click', () => closeSheet(el.passwordModal));
   el.passwordSaveBtn.addEventListener('click', async () => {
     const password = el.newPasswordInput.value;
-    if (password.length < 8 || password.length > 72) { await showAlert('Password', 'Use at least 8 characters.'); return; }
+    if (password.length < 8 || password.length > 72) { await showAlert(t('password_title'), t('password_short')); return; }
     const { error } = await sb.auth.updateUser({ password }).catch((e) => ({ error: e }));
-    if (error) { await showAlert("Couldn't change password", 'Check your internet connection and try again.'); return; }
+    if (error) { await showAlert(t('cant_change_pw'), t('check_internet')); return; }
     closeSheet(el.passwordModal);
-    await showAlert('Password changed', 'Use the new password next time you log in.');
+    await showAlert(t('pw_changed'), t('pw_changed_text'));
   });
 
   // ---------- Login ----------
@@ -1408,49 +1416,46 @@
   }
 
   const REGISTER_ERRORS = {
-    invalid_email: 'Enter a valid email address.',
-    weak_password: 'Choose a password with at least 8 characters.',
-    not_allowed: "This email hasn't been invited. Ask Toma to invite you.",
-    bad_code: "That invite code isn't right. Check it and try again.",
-    already_registered: 'You already have an account. Log in with your password.',
+    invalid_email: 'err_invalid_email', weak_password: 'err_weak_password', not_allowed: 'err_not_allowed',
+    bad_code: 'err_bad_code', already_registered: 'err_already',
   };
 
   let loginBusy = false;
   async function doLogin(register) {
     if (loginBusy) return;
-    if (!sb) { sayLogin("The app didn't load properly. Check your connection and reopen it."); return; }
+    if (!sb) { sayLogin(t('not_loaded')); return; }
     const email = el.loginEmail.value.trim().toLowerCase();
     const password = el.loginPassword.value;
-    if (!email || !password) { sayLogin('Enter your email and password.'); return; }
+    if (!email || !password) { sayLogin(t('enter_creds')); return; }
     const code = el.inviteCodeInput.value.trim().toUpperCase();
-    if (register && code.length !== 6) { sayLogin('Enter the 6-character invite code you were sent.'); el.inviteCodeInput.focus(); return; }
+    if (register && code.length !== 6) { sayLogin(t('enter_code')); el.inviteCodeInput.focus(); return; }
     loginBusy = true;
     el.loginForm.querySelectorAll('button').forEach(b => b.disabled = true);
-    sayLogin(register ? 'Creating your account…' : 'Logging in…', true);
+    sayLogin(register ? t('creating') : t('logging_in'), true);
     try {
       if (register) {
         const r = await api('register', { email, password, code });
-        if (r.error) { sayLogin(REGISTER_ERRORS[r.error] || 'Something went wrong. Please try again.'); return; }
+        if (r.error) { sayLogin(REGISTER_ERRORS[r.error] ? t(REGISTER_ERRORS[r.error]) : t('err_generic')); return; }
       }
       const { data, error } = await sb.auth.signInWithPassword({ email, password });
       if (error || !data.session) {
-        sayLogin(error && /invalid/i.test(error.message) ? 'Wrong email or password.' : "Couldn't log in. Please try again.");
+        sayLogin(error && /invalid/i.test(error.message) ? t('wrong_creds') : t('login_failed'));
         return;
       }
       if (!(await checkMember())) {
         try { await sb.auth.signOut({ scope: 'local' }); } catch (e) {}
-        sayLogin("This account hasn't been invited to My Fast. Ask Toma for an invite.");
+        sayLogin(t('not_invited'));
         return;
       }
-      sayLogin('Loading your fasts…', true);
-      if (!(await startSession(data.session.user))) { sayLogin("Couldn't load your fasts. Please try again."); return; }
+      sayLogin(t('loading'), true);
+      if (!(await startSession(data.session.user))) { sayLogin(t('load_failed')); return; }
       el.inviteCodeField.classList.add('hidden');
       el.inviteCodeInput.value = '';
-      el.registerBtn.textContent = 'I have an invite';
+      el.registerBtn.textContent = t('have_invite');
       el.loginScreen.classList.add('hidden');
       el.loginPassword.value = '';
     } catch (e) {
-      sayLogin("Can't reach the server. Check your internet connection.");
+      sayLogin(t('unreachable'));
     } finally {
       loginBusy = false;
       el.loginForm.querySelectorAll('button').forEach(b => b.disabled = false);
@@ -1462,8 +1467,8 @@
   el.registerBtn.addEventListener('click', () => {
     if (el.inviteCodeField.classList.contains('hidden')) {
       el.inviteCodeField.classList.remove('hidden');
-      el.registerBtn.textContent = 'Create account';
-      sayLogin('Enter your email, choose a password and type your invite code.', true);
+      el.registerBtn.textContent = t('create_account');
+      sayLogin(t('register_hint'), true);
       el.loginEmail.focus();
       return;
     }
@@ -1477,7 +1482,7 @@
     } catch (e) { return null; }   // null = couldn't check (offline): don't lock anyone out
   }
   el.forgotBtn.addEventListener('click', () =>
-    showAlert('Forgot password', `The app doesn't send emails. Ask Toma (${ADMIN_EMAIL}) for a temporary password, then change it in Settings.`));
+    showAlert(t('forgot_title'), t('forgot_text', { admin: ADMIN_EMAIL })));
 
   // Load this person's data. A different person on this phone starts from a clean slate.
   async function startSession(user) {
@@ -1499,7 +1504,7 @@
 
   let loggingOut = false;
   el.logoutBtn.addEventListener('click', async () => {
-    const ok = await showDialog({ title: 'Log out?', message: 'Your fasts stay in your account. Notifications stop on this phone.', okText: 'Log out', danger: true });
+    const ok = await showDialog({ title: t('logout_q'), message: t('logout_text'), okText: t('log_out'), danger: true });
     if (!ok) return;
     loggingOut = true;
     try { await withTimeout(unsubscribePush(), 6000); } catch (e) {}
@@ -1515,10 +1520,10 @@
   });
 
   async function startAccount() {
-    if (!sb) { if (!state.userId) showLogin("The app didn't load properly. Check your connection and reopen it."); return; }
+    if (!sb) { if (!state.userId) showLogin(t('not_loaded')); return; }
     sb.auth.onAuthStateChange((event) => {
       setTimeout(() => {   // never call the library from inside its own callback
-        if (event === 'SIGNED_OUT' && state.userId && !loggingOut) showLogin('Please log in again.');
+        if (event === 'SIGNED_OUT' && state.userId && !loggingOut) showLogin(t('login_again'));
       }, 0);
     });
     let session = null;
@@ -1529,18 +1534,41 @@
         state = emptyState();
         saveCache();
         renderAll();
-        showLogin("This account doesn't have access to My Fast. Ask Toma for an invite.");
+        showLogin(t('no_access'));
         return;
       }
-      if (!(await startSession(session.user)) && state.userId !== session.user.id) showLogin("Couldn't load your fasts. Please log in again.");
+      if (!(await startSession(session.user)) && state.userId !== session.user.id) showLogin(t('load_failed_login'));
     } else if (!state.userId) {
       showLogin();
     } else {
-      showLogin('Please log in again.');
+      showLogin(t('login_again'));
     }
   }
 
+  // ---------- Language ----------
+  function applyStaticText() {
+    document.documentElement.lang = I.lang;
+    document.querySelectorAll('[data-i18n]').forEach(n => { n.textContent = t(n.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-aria]').forEach(n => n.setAttribute('aria-label', t(n.dataset.i18nAria)));
+    document.querySelectorAll('#langToggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === I.lang));
+    $('loginLang').textContent = I.lang === 'bg' ? 'EN' : 'БГ';
+    el.registerBtn.textContent = el.inviteCodeField.classList.contains('hidden') ? t('have_invite') : t('create_account');
+    el.chartInfo.textContent = t('tap_day');
+  }
+  function setLanguage(l) {
+    I.set(l);
+    applyStaticText();
+    renderAll();
+    if (el.historyView.classList.contains('active')) { renderHistory(); renderChart(); }
+    if (el.settingsView.classList.contains('active')) loadInvites();
+    // The server writes notifications in this language.
+    if (state.userId) updateProfile({ lang: I.lang }).then(() => {}, () => {});
+  }
+  document.querySelectorAll('#langToggle button').forEach(b => b.addEventListener('click', () => setLanguage(b.dataset.lang)));
+  $('loginLang').addEventListener('click', () => setLanguage(I.lang === 'bg' ? 'en' : 'bg'));
+
   // ---------- Init ----------
+  applyStaticText();
   applyTheme();
   setPresetUI(selectedTargetHours);
   render();
