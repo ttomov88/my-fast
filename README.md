@@ -7,7 +7,7 @@ Live at https://ttomov88.github.io/my-fast/ (installed on Android via Chrome →
 ## Accounts and data
 
 - Each person logs in with email and password. Fasts are stored in their own account and are private: nobody sees anyone else's fasts.
-- Accounts are invite-only. The administrator (ttomov88@gmail.com) invites people in **Settings → People**; they then open the app, tap **Create account** and choose a password.
+- Accounts are invite-only. The administrator (ttomov88@gmail.com) invites people in **Settings → People**, which gives a one-time invite code. They open the app, tap **I have an invite**, choose a password and type the code. Only invited people can use the app (a My Fleet account alone isn't enough).
 - The app sends no emails. A forgotten password is reset by the administrator (Settings → People → Reset password), who passes on the temporary password. Anyone can change their password in Settings.
 - A copy is kept on the phone so the app opens instantly and history can be viewed offline. Changes (start/end a fast, edits) need an internet connection.
 - On the first login on a phone that used the old phone-only version (Fast Track), its fasts are moved into the account automatically.
@@ -19,7 +19,7 @@ Live at https://ttomov88.github.io/my-fast/ (installed on Android via Chrome →
 
 ## Notifications
 
-Sent by the server, so they arrive even when the app is closed:
+Sent by the server, so they arrive even when the app is closed (the start reminder follows each phone's time zone):
 - **Goal reached** — at the moment the running fast hits its goal (when Notifications is on).
 - **Remind me to start** — once a day at the time you choose, only if you're not fasting.
 

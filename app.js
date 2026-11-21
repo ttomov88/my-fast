@@ -63,7 +63,8 @@
     mainActionBtn: $('mainActionBtn'), editStartBtn: $('editStartBtn'),
     editModal: $('editModal'), editStartInput: $('editStartInput'), editCancelBtn: $('editCancelBtn'), editSaveBtn: $('editSaveBtn'),
     endFastModal: $('endFastModal'), endFastInput: $('endFastInput'), endFastCancelBtn: $('endFastCancelBtn'), endFastConfirmBtn: $('endFastConfirmBtn'),
-    historyList: $('historyList'), historyEmpty: $('historyEmpty'), historyLoadMoreBtn: $('historyLoadMoreBtn'),
+    historyList: $('historyList'), historyEmpty: $('historyEmpty'), historyEmptyTitle: $('historyEmptyTitle'), listTitle: $('listTitle'),
+    monthMeta: $('monthMeta'), chartInfo: $('chartInfo'), legendGoal: $('legendGoal'),
     statAvg: $('statAvg'), statCount: $('statCount'), statLongest: $('statLongest'),
     importFile: $('importFile'),
     chartBars: $('chartBars'), chartLabels: $('chartLabels'), chartMonthLabel: $('chartMonthLabel'),
@@ -82,6 +83,7 @@
     // login
     loginScreen: $('loginScreen'), loginForm: $('loginForm'), loginEmail: $('loginEmail'), loginPassword: $('loginPassword'),
     loginMsg: $('loginMsg'), registerBtn: $('registerBtn'), forgotBtn: $('forgotBtn'),
+    inviteCodeField: $('inviteCodeField'), inviteCodeInput: $('inviteCodeInput'),
     // fast add/edit modal
     fastEditModal: $('fastEditModal'), fastEditTitle: $('fastEditTitle'),
     fastEditStartInput: $('fastEditStartInput'), fastEditEndInput: $('fastEditEndInput'), fastEditTargetInput: $('fastEditTargetInput'),
@@ -96,9 +98,52 @@
   let tickInterval = null;
   let selectedTargetHours = state.lastTargetHours || 16;
   let currentChartMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  const HISTORY_PAGE_SIZE = 30;
-  let historyRenderLimit = HISTORY_PAGE_SIZE;
   let editingFastId = null; // null = adding a new fast; number = editing that fast
+
+  // ---------- Sheets and the phone's back button ----------
+  // While a sheet is open or you're on History/Settings, one extra history entry is kept, so the
+  // back button closes the sheet / returns to Home instead of leaving the app.
+  const sheetStack = [];
+  let armed = false, ignoreNextPop = false;
+  const atRoot = () => !sheetStack.length && el.timerView.classList.contains('active');
+  function arm() {
+    if (!armed) { history.pushState({ myfast: 1 }, ''); armed = true; }
+  }
+  function maybeDisarm() {
+    setTimeout(() => {
+      if (armed && atRoot()) { armed = false; ignoreNextPop = true; history.back(); }
+    }, 350);
+  }
+  function openSheet(m) {
+    m.classList.remove('hidden');
+    if (!sheetStack.includes(m)) sheetStack.push(m);
+    arm();
+  }
+  function closeSheet(m) {
+    m.classList.add('hidden');
+    const i = sheetStack.indexOf(m);
+    if (i >= 0) sheetStack.splice(i, 1);
+    maybeDisarm();
+  }
+  function dismissTop() {
+    const top = sheetStack[sheetStack.length - 1];
+    if (!top) return false;
+    if (top === el.dialogModal) closeDialog(false);
+    else closeSheet(top);
+    return true;
+  }
+  window.addEventListener('popstate', () => {
+    armed = false;
+    if (ignoreNextPop) { ignoreNextPop = false; return; }
+    if (!dismissTop() && !el.timerView.classList.contains('active')) showView('timerView');
+    if (!atRoot()) arm();
+  });
+  // Tapping the dark area above a sheet closes it.
+  document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', (e) => {
+    if (e.target !== m) return;
+    if (m === el.dialogModal) closeDialog(false);
+    else closeSheet(m);
+  }));
 
   // ---------- Generic styled dialog (replaces confirm()/alert()) ----------
   let dialogResolve = null;
@@ -111,13 +156,14 @@
       el.dialogCancelBtn.textContent = cancelText;
       el.dialogCancelBtn.style.display = showCancel ? '' : 'none';
       el.dialogOkBtn.classList.toggle('stop', !!danger);
+      if (dialogResolve) dialogResolve(false);
       dialogResolve = resolve;
-      el.dialogModal.classList.remove('hidden');
+      openSheet(el.dialogModal);
     });
   }
 
   function closeDialog(result) {
-    el.dialogModal.classList.add('hidden');
+    closeSheet(el.dialogModal);
     if (dialogResolve) {
       const r = dialogResolve;
       dialogResolve = null;
@@ -166,15 +212,20 @@
       saveCache();
       return true;
     } catch (e) {
-      const offline = !navigator.onLine || (e && /fetch|network/i.test(String(e.message || e)));
-      const duplicate = e && e.code === '23505';
-      await showAlert(failTitle, duplicate
-        ? 'That fast is already in your history.'
-        : offline ? "No internet connection. Try again when you're online." : 'Something went wrong. Please try again.');
+      await showAlert(failTitle, friendlyError(e));
       return false;
     } finally {
       busy = false;
     }
+  }
+
+  function friendlyError(e) {
+    const msg = String((e && (e.message || e)) || '');
+    if (e && e.code === '23505') return 'That fast is already in your history.';
+    if (/no_active_fast/.test(msg)) return 'This fast was already ended, maybe on another device. Your history has been refreshed.';
+    if (/not_member/.test(msg)) return "Your account doesn't have access to My Fast.";
+    if (!navigator.onLine || /fetch|network/i.test(msg)) return "No internet connection. Try again when you're online.";
+    return 'Something went wrong. Please try again.';
   }
 
   const rowToEntry = (r) => ({
@@ -196,10 +247,18 @@
     return out.map(rowToEntry);
   }
 
+  const PHONE_TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Sofia'; } catch (e) { return 'Europe/Sofia'; } })();
+
   async function fetchProfile() {
-    const cols = 'current_start, current_target, last_target, start_reminder';
+    const cols = 'current_start, current_target, last_target, start_reminder, tz';
     let p = must(await sb.from('fast_profiles').select(cols).maybeSingle());
-    if (!p) p = must(await sb.from('fast_profiles').insert({ user_id: state.userId }).select(cols).single());
+    if (!p) {
+      // Created on first use. Two devices opening at once may race: then just read the winner's row.
+      const ins = await sb.from('fast_profiles').insert({ user_id: state.userId, tz: PHONE_TZ }).select(cols).single();
+      p = ins.error && ins.error.code === '23505' ? must(await sb.from('fast_profiles').select(cols).single()) : must(ins);
+    }
+    // The start reminder follows the phone's time zone.
+    if (p.tz !== PHONE_TZ) updateProfile({ tz: PHONE_TZ }).then(() => {}, () => {});
     return p;
   }
 
@@ -270,8 +329,8 @@
       else t.removeAttribute('aria-current');
     });
     window.scrollTo(0, 0);
+    if (id === 'timerView') maybeDisarm(); else arm();
     if (id === 'historyView') {
-      historyRenderLimit = HISTORY_PAGE_SIZE;
       renderHistory();
       renderChart();
     } else if (id === 'settingsView') {
@@ -339,23 +398,22 @@
   });
 
   function openEndFastModal() {
-    el.endFastInput.value = toLocalInputValue(new Date());
-    el.endFastModal.classList.remove('hidden');
+    setDT(el.endFastInput, new Date());
+    openSheet(el.endFastModal);
   }
 
   el.endFastCancelBtn.addEventListener('click', () => {
-    el.endFastModal.classList.add('hidden');
+    closeSheet(el.endFastModal);
   });
 
   el.endFastConfirmBtn.addEventListener('click', async () => {
-    const val = el.endFastInput.value;
-    if (!val || !state.current) {
-      el.endFastModal.classList.add('hidden');
+    const endDate = getDT(el.endFastInput);
+    if (!state.current) {
+      closeSheet(el.endFastModal);
       return;
     }
-    const endDate = new Date(val);
     const startDate = new Date(state.current.startISO);
-    if (isNaN(endDate.getTime())) {
+    if (!endDate) {
       await showAlert('Invalid time', 'Please enter a valid date and time.');
       return;
     }
@@ -371,7 +429,7 @@
       await showAlert('Invalid time', "That's more than 30 days long — double check the date.");
       return;
     }
-    el.endFastModal.classList.add('hidden');
+    closeSheet(el.endFastModal);
     endFast(endDate);
   });
 
@@ -420,10 +478,8 @@
 
   async function storeSubscription(sub) {
     const j = sub.toJSON();
-    must(await sb.from('fast_push_subscriptions').upsert(
-      { endpoint: j.endpoint, user_id: state.userId, p256dh: j.keys.p256dh, auth: j.keys.auth },
-      { onConflict: 'endpoint' }
-    ));
+    // Server-side so the phone moves to whoever is logged in now, even if someone else used it before.
+    must(await sb.rpc('fast_claim_push', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth }));
   }
 
   async function subscribePush() {
@@ -558,30 +614,29 @@
   // ---------- Edit start time (active fast) ----------
   el.editStartBtn.addEventListener('click', () => {
     if (!state.current) return;
-    el.editStartInput.value = toLocalInputValue(new Date(state.current.startISO));
-    el.editModal.classList.remove('hidden');
+    setDT(el.editStartInput, new Date(state.current.startISO));
+    openSheet(el.editModal);
   });
 
   el.editCancelBtn.addEventListener('click', () => {
-    el.editModal.classList.add('hidden');
+    closeSheet(el.editModal);
   });
 
   el.editSaveBtn.addEventListener('click', async () => {
-    const val = el.editStartInput.value;
-    if (val && state.current) {
-      const newDate = new Date(val);
+    const newDate = getDT(el.editStartInput);
+    if (state.current) {
       const now = Date.now();
-      if (isNaN(newDate.getTime()) || newDate.getTime() >= now) {
-        el.editModal.classList.add('hidden');
+      if (!newDate || newDate.getTime() >= now) {
+        closeSheet(el.editModal);
         await showAlert('Invalid time', 'Start time must be in the past.');
         return;
       }
       if ((now - newDate.getTime()) / 3600000 > 720) {
-        el.editModal.classList.add('hidden');
+        closeSheet(el.editModal);
         await showAlert('Invalid time', "That's more than 30 days ago — double check the date.");
         return;
       }
-      el.editModal.classList.add('hidden');
+      closeSheet(el.editModal);
       const startISO = newDate.toISOString();
       const goalPassed = newDate.getTime() + state.current.targetHours * 3600000 <= now;
       const ok = await saveChange(async () => {
@@ -592,12 +647,27 @@
       if (ok) render();
       return;
     }
-    el.editModal.classList.add('hidden');
+    closeSheet(el.editModal);
   });
 
-  function toLocalInputValue(date) {
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  // 24-hour date + time fields (the phone's own time picker may show AM/PM).
+  const pad2 = (n) => String(n).padStart(2, '0');
+  document.querySelectorAll('.dt-field').forEach(f => {
+    const h = f.querySelector('.dt-h'), m = f.querySelector('.dt-m');
+    for (let i = 0; i < 24; i++) h.add(new Option(pad2(i), pad2(i)));
+    for (let i = 0; i < 60; i++) m.add(new Option(pad2(i), pad2(i)));
+  });
+  function setDT(f, d) {
+    f.querySelector('input').value = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    f.querySelector('.dt-h').value = pad2(d.getHours());
+    f.querySelector('.dt-m').value = pad2(d.getMinutes());
+  }
+  function getDT(f) {
+    const v = f.querySelector('input').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+    const [y, mo, da] = v.split('-').map(Number);
+    const d = new Date(y, mo - 1, da, Number(f.querySelector('.dt-h').value), Number(f.querySelector('.dt-m').value));
+    return isNaN(d.getTime()) ? null : d;
   }
 
   // ---------- Add / edit a past fast ----------
@@ -615,29 +685,27 @@
       el.fastEditTitle.textContent = 'Edit fast';
       el.fastEditDeleteBtn.classList.remove('hidden');
     }
-    el.fastEditStartInput.value = toLocalInputValue(new Date(entry.startISO));
-    el.fastEditEndInput.value = toLocalInputValue(new Date(entry.endISO));
+    setDT(el.fastEditStartInput, new Date(entry.startISO));
+    setDT(el.fastEditEndInput, new Date(entry.endISO));
     el.fastEditTargetInput.value = entry.targetHours;
-    el.fastEditModal.classList.remove('hidden');
+    openSheet(el.fastEditModal);
   }
 
   el.addFastBtn.addEventListener('click', () => openFastEditModal(null));
 
   el.fastEditCancelBtn.addEventListener('click', () => {
-    el.fastEditModal.classList.add('hidden');
+    closeSheet(el.fastEditModal);
   });
 
   el.fastEditSaveBtn.addEventListener('click', async () => {
-    const startVal = el.fastEditStartInput.value;
-    const endVal = el.fastEditEndInput.value;
+    const startDate = getDT(el.fastEditStartInput);
+    const endDate = getDT(el.fastEditEndInput);
     const targetVal = Number(el.fastEditTargetInput.value);
 
-    if (!startVal || !endVal || !targetVal || targetVal <= 0) {
+    if (!startDate || !endDate || !targetVal || targetVal <= 0) {
       await showAlert('Missing info', 'Please fill in start, end, and a goal greater than 0.');
       return;
     }
-    const startDate = new Date(startVal);
-    const endDate = new Date(endVal);
     if (endDate <= startDate) {
       await showAlert('Invalid times', 'End time must be after start time.');
       return;
@@ -669,7 +737,7 @@
       sortHistory();
     });
     if (!ok) return;
-    el.fastEditModal.classList.add('hidden');
+    closeSheet(el.fastEditModal);
     renderHistory();
     renderChart();
   });
@@ -756,51 +824,87 @@
     }
   }
 
-  // ---------- History list ----------
+  // ---------- History: one month at a time ----------
+  // The ‹ › arrows move the chart and the list together. Stats at the top are all-time.
+  const durH = (e) => (new Date(e.endISO) - new Date(e.startISO)) / 3600000;
+  const inMonth = (d, m) => d.getFullYear() === m.getFullYear() && d.getMonth() === m.getMonth();
+
+  // The goal used most often; rows only mention their goal when it's different.
+  function usualGoal() {
+    const counts = new Map();
+    state.history.forEach(e => counts.set(e.targetHours, (counts.get(e.targetHours) || 0) + 1));
+    let best = state.lastTargetHours || 16, n = 0;
+    counts.forEach((c, g) => { if (c > n) { n = c; best = g; } });
+    return best;
+  }
+
+  function ringAvatar(pct) {
+    if (pct >= 1) {
+      return '<span class="ring-avatar done" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
+    }
+    const C = 2 * Math.PI * 17;
+    const off = C * (1 - Math.max(0.02, pct));
+    return `<span class="ring-avatar" aria-hidden="true"><svg viewBox="0 0 40 40"><circle class="ra-track" cx="20" cy="20" r="17"/>` +
+      `<circle class="ra-fill" cx="20" cy="20" r="17" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/></svg>` +
+      `<span>${Math.floor(pct * 100)}%</span></span>`;
+  }
+
+  const timeOpts = { hour: '2-digit', minute: '2-digit', hour12: false };
+  function formatRowDate(d) {
+    return `${d.toLocaleDateString(undefined, { weekday: 'short' })} ${d.getDate()} ${d.toLocaleDateString(undefined, { month: 'short' })}`;
+  }
+
   function renderHistory() {
-    const items = state.history;
-    el.historyList.innerHTML = '';
+    renderStats();
+    const month = currentChartMonth;
+    const items = state.history.filter(e => inMonth(new Date(e.startISO), month));
+    const usual = usualGoal();
+    const monthName = month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+    if (items.length) {
+      const avg = items.reduce((t, e) => t + durH(e), 0) / items.length;
+      el.monthMeta.textContent = `${items.length} fast${items.length === 1 ? '' : 's'} · avg ${formatHoursShort(avg)}`;
+    } else {
+      el.monthMeta.textContent = 'No fasts';
+    }
+    el.listTitle.textContent = month.toLocaleDateString(undefined, { month: 'long' });
+    el.historyEmptyTitle.textContent = `No fasts in ${monthName}`;
     el.historyEmpty.classList.toggle('hidden', items.length > 0);
 
-    const visible = items.slice(0, historyRenderLimit);
-    visible.forEach((entry) => {
+    el.historyList.innerHTML = '';
+    items.forEach((entry) => {
       const start = new Date(entry.startISO);
       const end = new Date(entry.endISO);
-      const durationH = (end - start) / 3600000;
-      const hit = durationH >= entry.targetHours;
-
+      const hours = durH(entry);
+      const pct = hours / entry.targetHours;
+      const hit = pct >= 1;
+      const goalNote = entry.targetHours !== usual ? ` · goal ${formatHoursShort(entry.targetHours)}` : '';
       const li = document.createElement('li');
       li.className = 'row row-btn';
       li.dataset.id = entry.id;
-
-      const dateStr = formatShortDate(start);
-      const timeOpts = { hour: '2-digit', minute: '2-digit', hour12: false };
-      const timeStr = `${start.toLocaleTimeString(undefined, timeOpts)} – ${end.toLocaleTimeString(undefined, timeOpts)}`;
-      const icon = hit
-        ? '<path d="M5 12.5l4.5 4.5L19 7.5"/>'
-        : '<path d="M7 7l10 10M17 7L7 17"/>';
-
+      li.tabIndex = 0;
+      li.setAttribute('role', 'button');
+      li.setAttribute('aria-label',
+        `${formatRowDate(start)}, ${formatHoursShort(hours)} of ${formatHoursShort(entry.targetHours)} goal${hit ? ', goal met' : ''}. Edit`);
       li.innerHTML = `
-        <span class="avatar ${hit ? 'a-green' : 'a-red'}"><svg viewBox="0 0 24 24">${icon}</svg></span>
+        ${ringAvatar(pct)}
         <span class="row-text">
-          <span class="row-title">${dateStr}</span>
-          <span class="row-sub">${timeStr} · goal ${formatHoursShort(entry.targetHours)}</span>
+          <span class="row-title">${formatRowDate(start)}</span>
+          <span class="row-sub">${start.toLocaleTimeString(undefined, timeOpts)} → ${end.toLocaleTimeString(undefined, timeOpts)}${goalNote}</span>
         </span>
-        <span class="row-right"><span class="row-value ${hit ? 'v-green' : 'v-red'}">${formatHoursShort(durationH)}</span></span>
+        <span class="row-right"><span class="row-value ${hit ? 'v-hit' : 'v-under'}">${formatHoursShort(hours)}</span></span>
       `;
       el.historyList.appendChild(li);
     });
-
-    renderStats();
-
-    const remaining = items.length - visible.length;
-    el.historyLoadMoreBtn.classList.toggle('hidden', remaining <= 0);
-    el.historyLoadMoreBtn.textContent = `Load more (${remaining} remaining)`;
   }
 
   el.historyList.addEventListener('click', (e) => {
     const row = e.target.closest('.row');
     if (row) openFastEditModal(Number(row.dataset.id));
+  });
+  el.historyList.addEventListener('keydown', (e) => {
+    const row = e.target.closest('.row');
+    if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openFastEditModal(Number(row.dataset.id)); }
   });
 
   el.fastEditDeleteBtn.addEventListener('click', async () => {
@@ -818,27 +922,15 @@
       state.history = state.history.filter(x => x.id !== id);
     }, "Couldn't delete");
     if (!saved) return;
-    el.fastEditModal.classList.add('hidden');
+    closeSheet(el.fastEditModal);
     renderHistory();
     renderChart();
   });
 
-  el.historyLoadMoreBtn.addEventListener('click', () => {
-    historyRenderLimit += HISTORY_PAGE_SIZE;
-    renderHistory();
-  });
-
-  // Compact, consistent day-month-year format regardless of device locale, e.g. "8 Aug 25".
-  function formatShortDate(date) {
-    const day = date.getDate();
-    const month = date.toLocaleDateString(undefined, { month: 'short' });
-    const year = String(date.getFullYear()).slice(-2);
-    return `${day} ${month} ${year}`;
-  }
-
   function formatHoursShort(h) {
-    const whole = Math.floor(h);
-    const min = Math.round((h - whole) * 60);
+    let whole = Math.floor(h);
+    let min = Math.round((h - whole) * 60);
+    if (min === 60) { whole++; min = 0; }
     return min > 0 ? `${whole}h ${min}m` : `${whole}h`;
   }
 
@@ -849,23 +941,19 @@
   function renderStats() {
     const items = state.history;
     el.statCount.textContent = items.length;
-
     if (items.length === 0) {
       el.statAvg.textContent = '0h';
       el.statLongest.textContent = '0h';
       return;
     }
-
-    let totalH = 0;
-    let longestH = 0;
+    let totalH = 0, longestH = 0;
     items.forEach(e => {
-      const durationH = (new Date(e.endISO) - new Date(e.startISO)) / 3600000;
-      totalH += durationH;
-      if (durationH > longestH) longestH = durationH;
+      const h = durH(e);
+      totalH += h;
+      if (h > longestH) longestH = h;
     });
-
     el.statAvg.textContent = formatHoursShort(totalH / items.length);
-    el.statLongest.textContent = `${Math.round(longestH)}h`;
+    el.statLongest.textContent = formatHoursShort(longestH);
   }
 
   // ---------- Chart ----------
@@ -904,27 +992,56 @@
     return buckets;
   }
 
-  el.chartPrevMonthBtn.addEventListener('click', () => {
-    currentChartMonth = new Date(currentChartMonth.getFullYear(), currentChartMonth.getMonth() - 1, 1);
-    renderChart();
-  });
+  function firstMonth() {
+    let min = null;
+    state.history.forEach(e => { const d = new Date(e.startISO); if (!min || d < min) min = d; });
+    return min ? new Date(min.getFullYear(), min.getMonth(), 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  }
 
-  el.chartNextMonthBtn.addEventListener('click', () => {
-    const next = new Date(currentChartMonth.getFullYear(), currentChartMonth.getMonth() + 1, 1);
-    if (next > new Date()) return; // can't navigate into the future
+  function goToMonth(delta) {
+    const next = new Date(currentChartMonth.getFullYear(), currentChartMonth.getMonth() + delta, 1);
+    if (next > new Date() || next < firstMonth()) return;
     currentChartMonth = next;
     renderChart();
+    renderHistory();
+  }
+  el.chartPrevMonthBtn.addEventListener('click', () => goToMonth(-1));
+  el.chartNextMonthBtn.addEventListener('click', () => goToMonth(1));
+
+  let chartBuckets = [];
+  function showDayInfo(idx) {
+    const b = chartBuckets[idx];
+    el.chartBars.querySelectorAll('.chart-bar-col').forEach((c, i) => c.classList.toggle('sel', i === idx));
+    if (!b) { el.chartInfo.textContent = 'Tap a day to see its hours'; return; }
+    const day = b.date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+    el.chartInfo.innerHTML = '';
+    el.chartInfo.append(`${day}: `);
+    const strong = document.createElement('b');
+    strong.textContent = b.value > 0 ? `${formatHoursShort(b.value)} fasted` : 'no fasting';
+    el.chartInfo.append(strong);
+  }
+  el.chartBars.addEventListener('click', (e) => {
+    const col = e.target.closest('.chart-bar-col');
+    if (col) showDayInfo(Number(col.dataset.idx));
+  });
+  el.chartBars.addEventListener('keydown', (e) => {
+    const col = e.target.closest('.chart-bar-col');
+    if (col && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); showDayInfo(Number(col.dataset.idx)); }
   });
 
   function renderChart() {
     const buckets = buildMonthBuckets(currentChartMonth);
+    chartBuckets = buckets;
     const goalHours = Math.min(24, state.lastTargetHours || 16);
 
     el.chartMonthLabel.textContent = currentChartMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
     el.chartNextMonthBtn.disabled = isSameMonth(currentChartMonth, new Date());
+    el.chartPrevMonthBtn.disabled = currentChartMonth <= firstMonth();
+    el.legendGoal.textContent = `Goal ${formatHoursShort(goalHours)}`;
 
     el.chartBars.innerHTML = '';
     el.chartLabels.innerHTML = '';
+    showDayInfo(-1);
 
     const goalLine = document.createElement('div');
     goalLine.className = 'chart-goal-line';
@@ -935,6 +1052,10 @@
     buckets.forEach((b, idx) => {
       const col = document.createElement('div');
       col.className = 'chart-bar-col';
+      col.dataset.idx = idx;
+      col.tabIndex = 0;
+      col.setAttribute('role', 'button');
+      col.setAttribute('aria-label', `${b.date.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}: ${formatHoursShort(b.value)}`);
       const bar = document.createElement('div');
       const pct = Math.max(0, Math.min(100, (b.value / 24) * 100));
       bar.className = 'chart-bar' + (b.value > 0 ? (b.value >= goalHours ? ' hit-goal' : ' has-value') : '');
@@ -1105,22 +1226,31 @@
   async function loadInvites() {
     if (!isAdmin()) return;
     const r = await api('invites').catch(() => ({}));
-    if (!r.emails) return;
+    if (!r.people) return;
     el.inviteList.innerHTML = '';
-    r.emails.forEach(email => {
+    r.people.forEach(p => {
       const li = document.createElement('li');
       const name = document.createElement('span');
-      name.textContent = email;
+      name.textContent = p.email;
+      const status = document.createElement('small');
+      status.className = 'inv-status';
+      if (p.joined) status.textContent = 'Joined';
+      else if (p.code) { status.append('Invite code '); const b = document.createElement('b'); b.textContent = p.code; status.append(b); }
+      else status.textContent = 'Invited';
+      name.appendChild(status);
       const actions = document.createElement('div');
-      const reset = document.createElement('button');
-      reset.className = 'text-btn accent';
-      reset.textContent = 'Reset password';
-      reset.dataset.reset = email;
+      if (p.joined) {
+        const reset = document.createElement('button');
+        reset.className = 'text-btn accent';
+        reset.textContent = 'Reset password';
+        reset.dataset.reset = p.email;
+        actions.append(reset);
+      }
       const remove = document.createElement('button');
       remove.className = 'text-btn';
       remove.textContent = 'Remove';
-      remove.dataset.remove = email;
-      actions.append(reset, remove);
+      remove.dataset.remove = p.email;
+      actions.append(remove);
       li.append(name, actions);
       el.inviteList.appendChild(li);
     });
@@ -1133,7 +1263,7 @@
     if (r.error) { await showAlert("Couldn't invite", 'Check your internet connection and try again.'); return; }
     el.inviteEmailInput.value = '';
     await loadInvites();
-    await showAlert('Invited', `${email} can now open My Fast, tap "Create account" and choose a password.`);
+    await showAlert('Invited', `Send ${email} this:\n\n${location.origin}${location.pathname}\nInvite code: ${r.code}\n\nThey tap "I have an invite", enter their email, choose a password and type the code. If they already use My Fleet, they just log in with that password.`);
   });
 
   el.inviteList.addEventListener('click', async (e) => {
@@ -1146,7 +1276,7 @@
       else if (r.error === 'not_registered') await showAlert('No account yet', `${resetEmail} hasn't created an account yet.`);
       else await showAlert("Couldn't reset", 'Check your internet connection and try again.');
     } else if (removeEmail) {
-      if (!(await showDialog({ title: 'Remove invite?', message: `${removeEmail} won't be able to create an account. An existing account keeps working.`, okText: 'Remove', danger: true }))) return;
+      if (!(await showDialog({ title: 'Remove access?', message: `${removeEmail} won't be able to use My Fast any more. Their fasts are kept.`, okText: 'Remove', danger: true }))) return;
       const r = await api('uninvite', { email: removeEmail }).catch(() => ({ error: 'offline' }));
       if (r.error) await showAlert("Couldn't remove", 'Check your internet connection and try again.');
       await loadInvites();
@@ -1156,15 +1286,15 @@
   // ---------- Password ----------
   el.changePasswordBtn.addEventListener('click', () => {
     el.newPasswordInput.value = '';
-    el.passwordModal.classList.remove('hidden');
+    openSheet(el.passwordModal);
   });
-  el.passwordCancelBtn.addEventListener('click', () => el.passwordModal.classList.add('hidden'));
+  el.passwordCancelBtn.addEventListener('click', () => closeSheet(el.passwordModal));
   el.passwordSaveBtn.addEventListener('click', async () => {
     const password = el.newPasswordInput.value;
     if (password.length < 8 || password.length > 72) { await showAlert('Password', 'Use at least 8 characters.'); return; }
     const { error } = await sb.auth.updateUser({ password }).catch((e) => ({ error: e }));
     if (error) { await showAlert("Couldn't change password", 'Check your internet connection and try again.'); return; }
-    el.passwordModal.classList.add('hidden');
+    closeSheet(el.passwordModal);
     await showAlert('Password changed', 'Use the new password next time you log in.');
   });
 
@@ -1182,6 +1312,7 @@
     invalid_email: 'Enter a valid email address.',
     weak_password: 'Choose a password with at least 8 characters.',
     not_allowed: "This email hasn't been invited. Ask Toma to invite you.",
+    bad_code: "That invite code isn't right. Check it and try again.",
     already_registered: 'You already have an account. Log in with your password.',
   };
 
@@ -1192,12 +1323,14 @@
     const email = el.loginEmail.value.trim().toLowerCase();
     const password = el.loginPassword.value;
     if (!email || !password) { sayLogin('Enter your email and password.'); return; }
+    const code = el.inviteCodeInput.value.trim().toUpperCase();
+    if (register && code.length !== 6) { sayLogin('Enter the 6-character invite code you were sent.'); el.inviteCodeInput.focus(); return; }
     loginBusy = true;
     el.loginForm.querySelectorAll('button').forEach(b => b.disabled = true);
     sayLogin(register ? 'Creating your account…' : 'Logging in…', true);
     try {
       if (register) {
-        const r = await api('register', { email, password });
+        const r = await api('register', { email, password, code });
         if (r.error) { sayLogin(REGISTER_ERRORS[r.error] || 'Something went wrong. Please try again.'); return; }
       }
       const { data, error } = await sb.auth.signInWithPassword({ email, password });
@@ -1205,8 +1338,16 @@
         sayLogin(error && /invalid/i.test(error.message) ? 'Wrong email or password.' : "Couldn't log in. Please try again.");
         return;
       }
+      if (!(await checkMember())) {
+        try { await sb.auth.signOut({ scope: 'local' }); } catch (e) {}
+        sayLogin("This account hasn't been invited to My Fast. Ask Toma for an invite.");
+        return;
+      }
       sayLogin('Loading your fasts…', true);
       if (!(await startSession(data.session.user))) { sayLogin("Couldn't load your fasts. Please try again."); return; }
+      el.inviteCodeField.classList.add('hidden');
+      el.inviteCodeInput.value = '';
+      el.registerBtn.textContent = 'I have an invite';
       el.loginScreen.classList.add('hidden');
       el.loginPassword.value = '';
     } catch (e) {
@@ -1218,7 +1359,24 @@
   }
 
   el.loginForm.addEventListener('submit', (e) => { e.preventDefault(); doLogin(false); });
-  el.registerBtn.addEventListener('click', () => doLogin(true));
+  // First tap shows the invite code field; second tap creates the account.
+  el.registerBtn.addEventListener('click', () => {
+    if (el.inviteCodeField.classList.contains('hidden')) {
+      el.inviteCodeField.classList.remove('hidden');
+      el.registerBtn.textContent = 'Create account';
+      sayLogin('Enter your email, choose a password and type your invite code.', true);
+      el.loginEmail.focus();
+      return;
+    }
+    doLogin(true);
+  });
+
+  async function checkMember() {
+    try {
+      const { data, error } = await sb.rpc('is_fast_member');
+      return error ? null : data === true;
+    } catch (e) { return null; }   // null = couldn't check (offline): don't lock anyone out
+  }
   el.forgotBtn.addEventListener('click', () =>
     showAlert('Forgot password', `The app doesn't send emails. Ask Toma (${ADMIN_EMAIL}) for a temporary password, then change it in Settings.`));
 
@@ -1267,6 +1425,14 @@
     let session = null;
     try { session = (await sb.auth.getSession()).data.session; } catch (e) {}
     if (session) {
+      if ((await checkMember()) === false) {
+        try { await sb.auth.signOut({ scope: 'local' }); } catch (e) {}
+        state = emptyState();
+        saveCache();
+        renderAll();
+        showLogin("This account doesn't have access to My Fast. Ask Toma for an invite.");
+        return;
+      }
       if (!(await startSession(session.user)) && state.userId !== session.user.id) showLogin("Couldn't load your fasts. Please log in again.");
     } else if (!state.userId) {
       showLogin();

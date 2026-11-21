@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="My Fast">
 
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 
@@ -63,14 +63,15 @@
     <section id="historyView" class="view">
       <h1 class="page-title">History</h1>
 
+      <div class="group-title">All time</div>
       <div class="stats-row">
         <div class="stat-box">
           <span id="statAvg" class="stat-value">0h</span>
-          <span class="stat-label">Avg length</span>
+          <span class="stat-label">Average</span>
         </div>
         <div class="stat-box">
           <span id="statCount" class="stat-value">0</span>
-          <span class="stat-label">Total fasts</span>
+          <span class="stat-label">Fasts</span>
         </div>
         <div class="stat-box">
           <span id="statLongest" class="stat-value">0h</span>
@@ -80,36 +81,41 @@
 
       <div class="chart-card">
         <div class="chart-card-header">
-          <span class="chart-title">Hours per day</span>
-          <div class="month-nav">
-            <button id="chartPrevMonthBtn" class="month-nav-btn" aria-label="Previous month">
-              <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
-            </button>
+          <button id="chartPrevMonthBtn" class="month-nav-btn" aria-label="Previous month">
+            <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+          </button>
+          <div class="month-head">
             <span id="chartMonthLabel" class="month-nav-label">Month</span>
-            <button id="chartNextMonthBtn" class="month-nav-btn" aria-label="Next month">
-              <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
-            </button>
+            <span id="monthMeta" class="month-meta"></span>
           </div>
+          <button id="chartNextMonthBtn" class="month-nav-btn" aria-label="Next month">
+            <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
         </div>
         <div class="chart-wrap">
-          <div id="chartBars" class="chart-bars"></div>
-          <div class="chart-axis">
+          <div id="chartBars" class="chart-bars" role="group" aria-label="Hours fasted per day"></div>
+          <div class="chart-axis" aria-hidden="true">
             <span>24h</span><span>18h</span><span>12h</span><span>6h</span><span>0h</span>
           </div>
         </div>
-        <div id="chartLabels" class="chart-labels"></div>
+        <div id="chartLabels" class="chart-labels" aria-hidden="true"></div>
+        <div id="chartInfo" class="chart-info">Tap a day to see its hours</div>
+        <div class="chart-legend">
+          <span><i class="lg-hit"></i>Goal met</span>
+          <span><i class="lg-under"></i>Under goal</span>
+          <span><i class="lg-line"></i><span id="legendGoal">Goal</span></span>
+        </div>
       </div>
 
       <div class="section-title">
-        <span>Fasts</span>
+        <span id="listTitle">Fasts</span>
         <button id="addFastBtn" class="pill-btn">+ Add</button>
       </div>
       <ul id="historyList" class="group history-list"></ul>
       <div id="historyEmpty" class="empty-state hidden">
-        <div class="empty-title">No fasts yet</div>
-        <div class="empty-copy">Finished fasts show up here.</div>
+        <div class="empty-title" id="historyEmptyTitle">No fasts this month</div>
+        <div class="empty-copy">Use the arrows to see other months.</div>
       </div>
-      <button id="historyLoadMoreBtn" class="btn btn-secondary load-more-btn hidden">Load more</button>
     </section>
 
     <!-- SETTINGS -->
@@ -192,7 +198,7 @@
           <input type="email" id="inviteEmailInput" placeholder="friend@example.com" autocomplete="off" autocapitalize="none" spellcheck="false">
           <button id="inviteBtn" class="pill-btn">Invite</button>
         </div>
-        <p class="group-note">Invited people can create their own account. Their fasts are private.</p>
+        <p class="group-note">Invite someone, then send them the app link and their code. Their fasts are private.</p>
       </div>
 
       <div class="group-title">Account</div>
@@ -241,10 +247,14 @@
       <label for="loginPassword">Password</label>
       <input id="loginPassword" type="password" autocomplete="current-password" minlength="8">
     </div>
+    <div class="field hidden" id="inviteCodeField">
+      <label for="inviteCodeInput">Invite code</label>
+      <input id="inviteCodeInput" type="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="6">
+    </div>
     <p id="loginMsg" class="login-msg" role="alert"></p>
     <div class="modal-actions modal-actions-stack">
       <button type="submit" id="loginBtn" class="btn btn-primary">Log in</button>
-      <button type="button" id="registerBtn" class="btn btn-secondary">Create account (invited only)</button>
+      <button type="button" id="registerBtn" class="btn btn-secondary">I have an invite</button>
     </div>
     <button type="button" id="forgotBtn" class="link-btn">Forgot password?</button>
   </form>
@@ -272,8 +282,8 @@
     <div class="sheet-grab"></div>
     <h3>Edit start time</h3>
     <div class="field">
-      <label for="editStartInput">Started at</label>
-      <input type="datetime-local" id="editStartInput">
+      <label>Started at</label>
+      <div class="dt-field" id="editStartInput"><input type="date" aria-label="Date"><select class="row-select dt-h" aria-label="Hour"></select><span>:</span><select class="row-select dt-m" aria-label="Minute"></select></div>
     </div>
     <div class="modal-actions">
       <button id="editCancelBtn" class="btn btn-secondary">Cancel</button>
@@ -288,8 +298,8 @@
     <div class="sheet-grab"></div>
     <h3>End fast</h3>
     <div class="field">
-      <label for="endFastInput">Finished at</label>
-      <input type="datetime-local" id="endFastInput">
+      <label>Finished at</label>
+      <div class="dt-field" id="endFastInput"><input type="date" aria-label="Date"><select class="row-select dt-h" aria-label="Hour"></select><span>:</span><select class="row-select dt-m" aria-label="Minute"></select></div>
     </div>
     <div class="modal-actions">
       <button id="endFastCancelBtn" class="btn btn-secondary">Cancel</button>
@@ -304,12 +314,12 @@
     <div class="sheet-grab"></div>
     <h3 id="fastEditTitle">Edit fast</h3>
     <div class="field">
-      <label for="fastEditStartInput">Start</label>
-      <input type="datetime-local" id="fastEditStartInput">
+      <label>Start</label>
+      <div class="dt-field" id="fastEditStartInput"><input type="date" aria-label="Date"><select class="row-select dt-h" aria-label="Hour"></select><span>:</span><select class="row-select dt-m" aria-label="Minute"></select></div>
     </div>
     <div class="field">
-      <label for="fastEditEndInput">End</label>
-      <input type="datetime-local" id="fastEditEndInput">
+      <label>End</label>
+      <div class="dt-field" id="fastEditEndInput"><input type="date" aria-label="Date"><select class="row-select dt-h" aria-label="Hour"></select><span>:</span><select class="row-select dt-m" aria-label="Minute"></select></div>
     </div>
     <div class="field">
       <label for="fastEditTargetInput">Goal (hours)</label>
@@ -337,6 +347,6 @@
 </div>
 
 <script src="supabase.js"></script>
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

@@ -1,12 +1,12 @@
 // My Fast server. Deployed as the Supabase Edge Function "fast-api" in the my-fleet project.
 //
-// POST { action: "register", email, password }       -> create account (invited emails only, no email sent)
+// POST { action: "register", email, password, code } -> create account (invited email + its one-time code)
 // POST { action: "publicKey" }                        -> key the phone needs to sign up for notifications
 // POST { action: "test" }            (logged in)      -> test notification to that person's phones
 // POST { action: "push", items }     (x-cron-token)   -> due reminders, sent by fast_tick() every minute
-// POST { action: "invites" }         (administrator)  -> list invited emails
-// POST { action: "invite", email }   (administrator)  -> invite an email
-// POST { action: "uninvite", email } (administrator)  -> remove an invite (an existing account stays)
+// POST { action: "invites" }         (administrator)  -> list invited emails, their codes and who joined
+// POST { action: "invite", email }   (administrator)  -> invite an email; returns its one-time code
+// POST { action: "uninvite", email } (administrator)  -> remove access (their fasts are kept)
 // POST { action: "adminReset", email } (administrator) -> temporary password for an invited person
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendPush, type Subscription, type VapidKeys } from "./webpush.ts";
@@ -75,15 +75,32 @@ async function register(body: any) {
   const password = String(body.password ?? "");
   if (!EMAIL_RE.test(email)) return json({ error: "invalid_email" }, 400);
   if (password.length < 8 || password.length > 72) return json({ error: "weak_password" }, 400);
-  const { data: allow, error: aErr } = await admin.from("fast_allowed_emails").select("email").eq("email", email).maybeSingle();
+  const code = String(body.code ?? "").trim().toUpperCase();
+  const { data: allow, error: aErr } = await admin.from("fast_allowed_emails").select("email, code").eq("email", email).maybeSingle();
   if (aErr) throw aErr;
   if (!allow) return json({ error: "not_allowed" }, 403);
+  // Someone who already has an account (e.g. from My Fleet) just logs in.
+  const { data: existing } = await admin.rpc("user_id_of_email", { e: email });
+  if (existing) return json({ error: "already_registered" }, 409);
+  if (!allow.code || !timingSafeEqual(code, allow.code)) return json({ error: "bad_code" }, 403);
   const { error: cErr } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
   if (cErr) {
     if (/already/i.test(cErr.message ?? "")) return json({ error: "already_registered" }, 409);
     throw cErr;
   }
+  await admin.from("fast_allowed_emails").update({ code: null }).eq("email", email);   // one-time
   return json({ ok: true });
+}
+
+function timingSafeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+function inviteCode(): string {
+  const set = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from(crypto.getRandomValues(new Uint32Array(6)), x => set[x % set.length]).join("");
 }
 
 function fmtHours(h: number) {
@@ -116,9 +133,14 @@ async function test(req: Request) {
 async function invites(req: Request) {
   const denied = await requireAdmin(req);
   if (denied) return denied;
-  const { data, error } = await admin.from("fast_allowed_emails").select("email").neq("email", ADMIN_EMAIL).order("added_at");
+  const { data, error } = await admin.from("fast_allowed_emails").select("email, code").neq("email", ADMIN_EMAIL).order("added_at");
   if (error) throw error;
-  return json({ emails: (data ?? []).map(r => r.email) });
+  const people = [];
+  for (const r of data ?? []) {
+    const { data: uid } = await admin.rpc("user_id_of_email", { e: r.email });
+    people.push({ email: r.email, code: uid ? null : r.code, joined: !!uid });
+  }
+  return json({ people });
 }
 
 async function invite(req: Request, body: any, add: boolean) {
@@ -127,11 +149,16 @@ async function invite(req: Request, body: any, add: boolean) {
   const email = String(body.email ?? "").trim().toLowerCase();
   if (!EMAIL_RE.test(email)) return json({ error: "invalid_email" }, 400);
   if (email === ADMIN_EMAIL) return json({ error: "forbidden" }, 403);
-  const { error } = add
-    ? await admin.from("fast_allowed_emails").upsert({ email }, { onConflict: "email", ignoreDuplicates: true })
-    : await admin.from("fast_allowed_emails").delete().eq("email", email);
+  if (!add) {
+    const { error } = await admin.from("fast_allowed_emails").delete().eq("email", email);
+    if (error) throw error;
+    return json({ ok: true });
+  }
+  const { data: existing } = await admin.from("fast_allowed_emails").select("code").eq("email", email).maybeSingle();
+  const code = existing?.code ?? inviteCode();
+  const { error } = await admin.from("fast_allowed_emails").upsert({ email, code }, { onConflict: "email" });
   if (error) throw error;
-  return json({ ok: true });
+  return json({ ok: true, code });
 }
 
 function tempPassword(): string {

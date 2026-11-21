@@ -211,7 +211,6 @@ main {
 .month-nav-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .month-nav-btn:active { background: var(--surface-press); }
 .month-nav-btn:disabled { opacity: 0.35; cursor: default; }
-.month-nav-label { font-size: 13.5px; font-weight: 600; color: var(--text-2); min-width: 104px; text-align: center; }
 .chart-wrap { display: flex; gap: 8px; height: 150px; }
 .chart-bars {
   position: relative; flex: 1; display: flex; align-items: flex-end; gap: 2px;
@@ -221,13 +220,13 @@ main {
 .chart-bar-col { flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
 .chart-bar { width: 100%; border-radius: 3px 3px 1px 1px; background: transparent; min-height: 0; }
 .chart-bar.has-value { background: var(--accent); }
-.chart-bar.hit-goal { background: var(--amber); }
+.chart-bar.hit-goal { background: var(--green); }
 .chart-axis {
   width: 32px; display: flex; flex-direction: column; justify-content: space-between;
-  font-size: 10.5px; color: var(--text-3); text-align: right; font-variant-numeric: tabular-nums;
+  font-size: 11px; color: var(--text-2); text-align: right; font-variant-numeric: tabular-nums;
 }
 .chart-labels { display: flex; gap: 2px; margin-right: 40px; margin-top: 6px; }
-.chart-labels span { flex: 1; font-size: 10.5px; color: var(--text-3); text-align: center; min-width: 0; font-variant-numeric: tabular-nums; }
+.chart-labels span { flex: 1; font-size: 11px; color: var(--text-2); text-align: center; min-width: 0; font-variant-numeric: tabular-nums; }
 
 .section-title {
   display: flex; align-items: center; justify-content: space-between;
@@ -266,7 +265,6 @@ main {
 .avatar.a-green { background: var(--green-soft); color: var(--green); }
 .avatar.a-red { background: var(--red-soft); color: var(--red); }
 
-.load-more-btn { width: 100%; flex: none; margin-top: -10px; }
 
 .empty-state { text-align: center; padding: 28px 24px 36px; }
 .empty-title { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 6px; }
@@ -368,3 +366,48 @@ main {
 .target-picker { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .target-picker .chip { padding: 10px 0; font-size: 14px; text-align: center; }
 #settingsView .row-sub { white-space: normal; }
+
+/* ---------- History: month header, chart extras ---------- */
+.chart-card-header { margin-bottom: 16px; }
+.month-head { flex: 1; text-align: center; min-width: 0; }
+.month-nav-label { display: block; font-size: 17px; font-weight: 700; letter-spacing: -0.2px; }
+.month-meta { display: block; font-size: 13px; color: var(--text-2); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.month-nav-btn { width: 36px; height: 36px; flex-shrink: 0; }
+.chart-bar-col { cursor: pointer; border-radius: 3px; }
+.chart-bar-col.sel { background: var(--accent-soft); }
+.chart-info { font-size: 13px; color: var(--text-2); text-align: center; margin-top: 10px; min-height: 18px; font-variant-numeric: tabular-nums; }
+.chart-info b { color: var(--text); font-weight: 700; }
+.chart-legend { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--text-2); }
+.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.lg-hit { background: var(--green); }
+.lg-under { background: var(--accent); }
+.lg-line { width: 14px !important; height: 0 !important; border-top: 2px dashed var(--text-2); border-radius: 0 !important; }
+
+/* progress ring avatar on each fast */
+.ring-avatar { width: 40px; height: 40px; flex-shrink: 0; position: relative; }
+.ring-avatar svg { width: 40px; height: 40px; transform: rotate(-90deg); }
+.ring-avatar .ra-track { fill: none; stroke: var(--surface-2); stroke-width: 4; }
+.ring-avatar .ra-fill { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
+.ring-avatar span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 700; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.ring-avatar.done { border-radius: 50%; background: var(--green-soft); color: var(--green); display: flex; align-items: center; justify-content: center; }
+.ring-avatar.done svg { width: 20px; height: 20px; transform: none; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.history-list .row + .row::before { left: 70px; }
+.row-value.v-hit { color: var(--green); }
+.row-value.v-under { color: var(--text); }
+.row-btn:focus-visible, .tab:focus-visible, .btn:focus-visible, .chip:focus-visible, .pill-btn:focus-visible, .chart-bar-col:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* 24-hour date + time */
+.dt-field { display: flex; align-items: center; gap: 6px; color: var(--text-2); font-weight: 600; }
+.dt-field input[type="date"] {
+  flex: 1; min-width: 0; padding: 12px; min-height: 52px; border-radius: var(--radius-sm); border: 2px solid transparent;
+  font-size: 16px; background: var(--surface); color: var(--text); outline: none; user-select: text;
+}
+.dt-field input[type="date"]:focus { border-color: var(--accent); }
+.dt-field .row-select { min-height: 52px; padding: 0 12px; background: var(--surface); border-radius: var(--radius-sm); font-size: 16px; }
+
+/* people */
+.invite-list .inv-status { display: block; font-size: 12.5px; font-weight: 500; color: var(--text-2); margin-top: 2px; }
+.invite-list .inv-status b { color: var(--accent); letter-spacing: 1px; user-select: all; }
