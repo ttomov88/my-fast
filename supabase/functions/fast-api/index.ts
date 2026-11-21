@@ -11,7 +11,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendPush, type Subscription, type VapidKeys } from "./webpush.ts";
 
-const SUBJECT = "https://ttomov88.github.io/fast-track/";
+const SUBJECT = "https://ttomov88.github.io/my-fast/";
 const ADMIN_EMAIL = "ttomov88@gmail.com";
 
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {

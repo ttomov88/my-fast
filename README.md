@@ -2,7 +2,7 @@
 
 A minimal intermittent fasting timer. Pick a fasting window (16:8, 18:6, 20:4, OMAD or a custom goal), tap Start, and it tracks elapsed time against your goal. Finished fasts go into your history with a green (goal hit) or red (missed) duration.
 
-Live at https://ttomov88.github.io/fast-track/ (installed on Android via Chrome → Add to Home screen).
+Live at https://ttomov88.github.io/my-fast/ (installed on Android via Chrome → Add to Home screen).
 
 ## Accounts and data
 
