@@ -1,14 +1,14 @@
 // My Fast service worker.
 // App code (page, app.js, style.css) is network-first so updates show up right away; icons, the
 // manifest and the Supabase library are cache-first. Bump CACHE_NAME when those change.
-const CACHE_NAME = 'my-fast-v4';
+const CACHE_NAME = 'my-fast-v5';
 const CORE = ['./', './index.html', './style.css?v=4', './app.js?v=4', './supabase.js', './manifest.json'];
 const OPTIONAL = [
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-maskable-192.png',
-  './icons/icon-maskable-512.png',
-  './icons/badge-96.png',
+  './icons/icon-192-v2.png',
+  './icons/icon-512-v2.png',
+  './icons/icon-maskable-192-v2.png',
+  './icons/icon-maskable-512-v2.png',
+  './icons/badge-96-v2.png',
   './fonts/inter-latin-wght-normal.woff2',
   './fonts/inter-cyrillic-wght-normal.woff2',
 ];
@@ -82,8 +82,8 @@ self.addEventListener('push', (event) => {
   try { msg = event.data ? event.data.json() : {}; } catch (e) { msg = { body: event.data ? event.data.text() : '' }; }
   event.waitUntil(self.registration.showNotification(msg.title || 'My Fast', {
     body: msg.body || '',
-    icon: 'icons/icon-192.png',
-    badge: 'icons/badge-96.png',
+    icon: 'icons/icon-192-v2.png',
+    badge: 'icons/badge-96-v2.png',
     tag: msg.tag || 'my-fast',
     renotify: true,
   }));
