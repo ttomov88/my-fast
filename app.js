@@ -16,6 +16,8 @@
   const RING_CIRC = 2 * Math.PI * 115; // 722.566
   const PRESET_HOURS = [16, 18, 20, 24];
   const DEFAULT_REMINDER = '20:00';
+  const RING_COLOR = '#FFFFFF';        // on the teal timer card
+  const RING_DONE_COLOR = '#FFD27A';   // goal reached
 
   const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { storageKey: AUTH_KEY, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
@@ -54,8 +56,7 @@
   const $ = (id) => document.getElementById(id);
   const el = {
     timerView: $('timerView'), historyView: $('historyView'), settingsView: $('settingsView'),
-    historyBtn: $('historyBtn'), appTitle: $('appTitle'), backBtn: $('backBtn'),
-    settingsBtn: $('settingsBtnTop'), settingsBackBtn: $('settingsBackBtn'),
+    tabs: document.querySelectorAll('.tab'),
     ringProgress: $('ringProgress'), statusLabel: $('statusLabel'), elapsedTime: $('elapsedTime'),
     subLabel: $('subLabel'), finishTime: $('finishTime'),
     targetPicker: $('targetPicker'), customTargetWrap: $('customTargetWrap'), customTargetInput: $('customTargetInput'),
@@ -73,10 +74,10 @@
     settingsNotifToggle: $('settingsNotifToggle'), notifStatusText: $('notifStatusText'),
     startReminderToggle: $('startReminderToggle'), startReminderText: $('startReminderText'),
     startReminderTimeRow: $('startReminderTimeRow'), startReminderHour: $('startReminderHour'), startReminderMinute: $('startReminderMinute'),
-    settingsExportBtn: $('settingsExportBtn'), settingsShareBtn: $('settingsShareBtn'), settingsImportBtn: $('settingsImportBtn'),
+    settingsExportBtn: $('settingsExportBtn'), settingsImportBtn: $('settingsImportBtn'),
     resetDataBtn: $('resetDataBtn'),
     peopleSection: $('peopleSection'), inviteList: $('inviteList'), inviteEmailInput: $('inviteEmailInput'), inviteBtn: $('inviteBtn'),
-    accountEmail: $('accountEmail'), changePasswordBtn: $('changePasswordBtn'), logoutBtn: $('logoutBtn'),
+    accountEmail: $('accountEmail'), profileAvatar: $('profileAvatar'), changePasswordBtn: $('changePasswordBtn'), logoutBtn: $('logoutBtn'),
     passwordModal: $('passwordModal'), newPasswordInput: $('newPasswordInput'), passwordCancelBtn: $('passwordCancelBtn'), passwordSaveBtn: $('passwordSaveBtn'),
     // login
     loginScreen: $('loginScreen'), loginForm: $('loginForm'), loginEmail: $('loginEmail'), loginPassword: $('loginPassword'),
@@ -84,7 +85,7 @@
     // fast add/edit modal
     fastEditModal: $('fastEditModal'), fastEditTitle: $('fastEditTitle'),
     fastEditStartInput: $('fastEditStartInput'), fastEditEndInput: $('fastEditEndInput'), fastEditTargetInput: $('fastEditTargetInput'),
-    fastEditCancelBtn: $('fastEditCancelBtn'), fastEditSaveBtn: $('fastEditSaveBtn'),
+    fastEditCancelBtn: $('fastEditCancelBtn'), fastEditSaveBtn: $('fastEditSaveBtn'), fastEditDeleteBtn: $('fastEditDeleteBtn'),
     // generic dialog
     dialogModal: $('dialogModal'), dialogTitle: $('dialogTitle'), dialogMessage: $('dialogMessage'),
     dialogOkBtn: $('dialogOkBtn'), dialogCancelBtn: $('dialogCancelBtn'),
@@ -240,7 +241,7 @@
     const resolved = resolveTheme();
     document.documentElement.setAttribute('data-theme', resolved);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', resolved === 'dark' ? '#0f1115' : '#f4f5f7');
+    if (meta) meta.setAttribute('content', resolved === 'dark' ? '#000000' : '#F2F3F7');
     el.themeToggle.querySelectorAll('.theme-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.theme === theme);
     });
@@ -261,27 +262,26 @@
     else if (mq.addListener) mq.addListener(onChange);
   }
 
-  // ---------- View navigation ----------
+  // ---------- View navigation (bottom menu) ----------
   function showView(id) {
-    [el.timerView, el.historyView, el.settingsView].forEach(v => v.classList.remove('active'));
-    $(id).classList.add('active');
+    [el.timerView, el.historyView, el.settingsView].forEach(v => v.classList.toggle('active', v.id === id));
+    el.tabs.forEach(t => {
+      if (t.dataset.view === id) t.setAttribute('aria-current', 'page');
+      else t.removeAttribute('aria-current');
+    });
+    window.scrollTo(0, 0);
+    if (id === 'historyView') {
+      historyRenderLimit = HISTORY_PAGE_SIZE;
+      renderHistory();
+      renderChart();
+    } else if (id === 'settingsView') {
+      syncSettingsUI();
+      refreshPushState();
+      loadInvites();
+    }
   }
 
-  el.historyBtn.addEventListener('click', () => {
-    showView('historyView');
-    historyRenderLimit = HISTORY_PAGE_SIZE;
-    renderHistory();
-    renderChart();
-  });
-  el.backBtn.addEventListener('click', () => showView('timerView'));
-  el.appTitle.addEventListener('click', () => showView('timerView'));
-  el.settingsBtn.addEventListener('click', () => {
-    showView('settingsView');
-    syncSettingsUI();
-    refreshPushState();
-    loadInvites();
-  });
-  el.settingsBackBtn.addEventListener('click', () => showView('timerView'));
+  el.tabs.forEach(t => t.addEventListener('click', () => showView(t.dataset.view)));
 
   // ---------- Preset picker (main timer view) ----------
   function setPresetUI(hours) {
@@ -497,7 +497,8 @@
       el.startReminderText.textContent = 'Off';
     }
 
-    el.accountEmail.textContent = state.email ? `Logged in as ${state.email}` : '';
+    el.accountEmail.textContent = state.email || '';
+    el.profileAvatar.textContent = (state.email || '?').charAt(0).toUpperCase();
     el.peopleSection.classList.toggle('hidden', state.email !== ADMIN_EMAIL);
     applyTheme();
   }
@@ -609,8 +610,10 @@
       const defaultStart = new Date(now.getTime() - (state.lastTargetHours || 16) * 3600000);
       entry = { startISO: defaultStart.toISOString(), endISO: now.toISOString(), targetHours: state.lastTargetHours || 16 };
       el.fastEditTitle.textContent = 'Add fast';
+      el.fastEditDeleteBtn.classList.add('hidden');
     } else {
       el.fastEditTitle.textContent = 'Edit fast';
+      el.fastEditDeleteBtn.classList.remove('hidden');
     }
     el.fastEditStartInput.value = toLocalInputValue(new Date(entry.startISO));
     el.fastEditEndInput.value = toLocalInputValue(new Date(entry.endISO));
@@ -692,15 +695,15 @@
       el.mainActionBtn.textContent = 'End Fast';
       el.mainActionBtn.classList.add('stop');
       el.editStartBtn.classList.remove('hidden');
-      el.statusLabel.textContent = 'FASTING';
-      document.querySelectorAll('#targetPicker .preset').forEach(b => b.style.opacity = '0.4');
+      el.statusLabel.textContent = 'Fasting';
+      el.targetPicker.classList.add('locked');
       el.customTargetInput.disabled = true;
       setPresetUI(state.current.targetHours);
 
       const finishDate = new Date(new Date(state.current.startISO).getTime() + state.current.targetHours * 3600000);
       const finishStr = finishDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
       const finishWeekday = finishDate.toLocaleDateString(undefined, { weekday: 'short' });
-      el.finishTime.textContent = `${finishStr} ${finishWeekday}`;
+      el.finishTime.textContent = `Goal at ${finishStr} ${finishWeekday}`;
       el.finishTime.classList.remove('hidden');
 
       startTick();
@@ -708,15 +711,14 @@
       el.mainActionBtn.textContent = 'Start Fast';
       el.mainActionBtn.classList.remove('stop');
       el.editStartBtn.classList.add('hidden');
-      el.statusLabel.textContent = 'NOT FASTING';
-      el.subLabel.textContent = 'Tap start to begin';
-      el.subLabel.style.color = '';
+      el.statusLabel.textContent = 'Not fasting';
+      el.subLabel.textContent = 'Tap Start Fast to begin';
       el.elapsedTime.textContent = '00:00:00';
       el.finishTime.classList.add('hidden');
       el.finishTime.textContent = '';
-      el.ringProgress.style.stroke = 'var(--accent)';
+      el.ringProgress.style.stroke = RING_COLOR;
       el.ringProgress.style.strokeDashoffset = RING_CIRC;
-      document.querySelectorAll('#targetPicker .preset').forEach(b => b.style.opacity = '1');
+      el.targetPicker.classList.remove('locked');
       el.customTargetInput.disabled = false;
       setPresetUI(selectedTargetHours);
       stopTick();
@@ -744,13 +746,13 @@
     el.ringProgress.style.strokeDashoffset = RING_CIRC * (1 - frac);
 
     if (elapsedMs >= targetMs) {
-      el.ringProgress.style.stroke = 'var(--accent2)';
-      el.subLabel.textContent = `Goal reached · +${formatElapsed(elapsedMs - targetMs)} over`;
-      el.subLabel.style.color = '';
+      el.ringProgress.style.stroke = RING_DONE_COLOR;
+      el.statusLabel.textContent = 'Goal reached 🎉';
+      el.subLabel.textContent = `+${formatElapsed(elapsedMs - targetMs)} over`;
     } else {
-      el.ringProgress.style.stroke = 'var(--accent)';
-      el.subLabel.textContent = formatElapsed(targetMs - elapsedMs);
-      el.subLabel.style.color = 'var(--accent)';
+      el.ringProgress.style.stroke = RING_COLOR;
+      el.statusLabel.textContent = 'Fasting';
+      el.subLabel.textContent = `${formatElapsed(targetMs - elapsedMs)} left`;
     }
   }
 
@@ -768,26 +770,23 @@
       const hit = durationH >= entry.targetHours;
 
       const li = document.createElement('li');
-      li.className = 'history-item';
+      li.className = 'row row-btn';
+      li.dataset.id = entry.id;
 
       const dateStr = formatShortDate(start);
       const timeOpts = { hour: '2-digit', minute: '2-digit', hour12: false };
       const timeStr = `${start.toLocaleTimeString(undefined, timeOpts)} – ${end.toLocaleTimeString(undefined, timeOpts)}`;
+      const icon = hit
+        ? '<path d="M5 12.5l4.5 4.5L19 7.5"/>'
+        : '<path d="M7 7l10 10M17 7L7 17"/>';
 
       li.innerHTML = `
-        <div class="hi-left">
-          <span class="hi-date">${dateStr}</span>
-          <span class="hi-range">${timeStr}</span>
-        </div>
-        <div class="hi-right">
-          <span class="hi-duration ${hit ? 'hit' : 'miss'}">${formatHoursShort(durationH)}</span>
-          <button class="hi-edit" data-id="${entry.id}" aria-label="Edit">
-            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-          </button>
-          <button class="hi-del" data-id="${entry.id}" aria-label="Delete">
-            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-          </button>
-        </div>
+        <span class="avatar ${hit ? 'a-green' : 'a-red'}"><svg viewBox="0 0 24 24">${icon}</svg></span>
+        <span class="row-text">
+          <span class="row-title">${dateStr}</span>
+          <span class="row-sub">${timeStr} · goal ${formatHoursShort(entry.targetHours)}</span>
+        </span>
+        <span class="row-right"><span class="row-value ${hit ? 'v-green' : 'v-red'}">${formatHoursShort(durationH)}</span></span>
       `;
       el.historyList.appendChild(li);
     });
@@ -799,12 +798,14 @@
     el.historyLoadMoreBtn.textContent = `Load more (${remaining} remaining)`;
   }
 
-  el.historyList.addEventListener('click', async (e) => {
-    const editBtn = e.target.closest('.hi-edit');
-    if (editBtn) { openFastEditModal(Number(editBtn.dataset.id)); return; }
-    const delBtn = e.target.closest('.hi-del');
-    if (!delBtn) return;
-    const id = Number(delBtn.dataset.id);
+  el.historyList.addEventListener('click', (e) => {
+    const row = e.target.closest('.row');
+    if (row) openFastEditModal(Number(row.dataset.id));
+  });
+
+  el.fastEditDeleteBtn.addEventListener('click', async () => {
+    const id = editingFastId;
+    if (id === null) return;
     const ok = await showDialog({
       title: 'Delete this fast?',
       message: "This removes it from your history. This can't be undone.",
@@ -816,7 +817,10 @@
       must(await sb.from('fasts').delete().eq('id', id));
       state.history = state.history.filter(x => x.id !== id);
     }, "Couldn't delete");
-    if (saved) { renderHistory(); renderChart(); }
+    if (!saved) return;
+    el.fastEditModal.classList.add('hidden');
+    renderHistory();
+    renderChart();
   });
 
   el.historyLoadMoreBtn.addEventListener('click', () => {
@@ -1069,7 +1073,7 @@
     if (saved) renderAll();
   });
 
-  // ---------- Export / Share ----------
+  // ---------- Export ----------
   function buildBackupFile() {
     const payload = {
       app: 'my-fast',
@@ -1094,31 +1098,6 @@
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   });
-
-  // Chromium only shares certain file types, so the copy is shared as .txt (still valid JSON).
-  const shareFilesSupported = (() => {
-    if (!navigator.share || !navigator.canShare) return false;
-    try {
-      return navigator.canShare({ files: [new File(['{}'], 'probe.txt', { type: 'text/plain' })] });
-    } catch (e) {
-      return false;
-    }
-  })();
-
-  if (shareFilesSupported) {
-    el.settingsShareBtn.classList.remove('hidden');
-    el.settingsShareBtn.addEventListener('click', async () => {
-      const { blob, filename } = buildBackupFile();
-      const file = new File([blob], filename.replace(/\.json$/, '.txt'), { type: 'text/plain' });
-      try {
-        await navigator.share({ files: [file], title: 'My Fast backup' });
-      } catch (e) {
-        if (e && e.name !== 'AbortError') {
-          await showAlert('Share failed', "Couldn't open the share sheet — try Export instead.");
-        }
-      }
-    });
-  }
 
   // ---------- People (administrator only) ----------
   const isAdmin = () => state.email === ADMIN_EMAIL;

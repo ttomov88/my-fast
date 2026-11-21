@@ -1,13 +1,16 @@
 // My Fast service worker.
 // App code (page, app.js, style.css) is network-first so updates show up right away; icons, the
 // manifest and the Supabase library are cache-first. Bump CACHE_NAME when those change.
-const CACHE_NAME = 'my-fast-v2';
-const CORE = ['./', './index.html', './style.css', './app.js?v=2', './supabase.js', './manifest.json'];
+const CACHE_NAME = 'my-fast-v3';
+const CORE = ['./', './index.html', './style.css?v=3', './app.js?v=3', './supabase.js', './manifest.json'];
 const OPTIONAL = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-192.png',
   './icons/icon-maskable-512.png',
+  './icons/badge-96.png',
+  './fonts/inter-latin-wght-normal.woff2',
+  './fonts/inter-cyrillic-wght-normal.woff2',
 ];
 
 self.addEventListener('install', (event) => {
@@ -80,7 +83,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(msg.title || 'My Fast', {
     body: msg.body || '',
     icon: 'icons/icon-192.png',
-    badge: 'icons/icon-192.png',
+    badge: 'icons/badge-96.png',
     tag: msg.tag || 'my-fast',
     renotify: true,
   }));

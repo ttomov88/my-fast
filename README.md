@@ -15,7 +15,7 @@ Live at https://ttomov88.github.io/fast-track/ (installed on Android via Chrome 
 ## Backups
 
 - The server makes an automatic backup of every account every night and keeps 30 days. Nothing is saved on the phone.
-- **Settings → Export** downloads a JSON copy whenever you want one; **Share** sends the same copy as a .txt file; **Import** adds fasts from a My Fast or Fast Track export (duplicates are skipped).
+- **Settings → Export** downloads a JSON copy whenever you want one; **Import** adds fasts from a My Fast or Fast Track export (duplicates are skipped).
 
 ## Notifications
 

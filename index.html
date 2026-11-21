@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <title>My Fast</title>
-<meta name="theme-color" content="#f4f5f7">
+<meta name="theme-color" content="#F2F3F7">
 <meta name="description" content="Simple intermittent fasting timer">
 
 <!-- PWA -->
@@ -15,67 +15,53 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="My Fast">
 
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
-<div class="app">
-
-  <header class="topbar">
-    <h1 id="appTitle">My Fast</h1>
-    <div class="topbar-actions">
-      <button id="historyBtn" class="icon-btn" aria-label="History">
-        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6a7 7 0 1 1 2.05 4.95l-1.42 1.42A9 9 0 1 0 13 3zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8z"/></svg>
-      </button>
-      <button id="settingsBtnTop" class="icon-btn" aria-label="Settings">
-        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.61l-1.92-3.32a.5.5 0 0 0-.58-.22l-2.39.96a7.3 7.3 0 0 0-1.62-.94l-.36-2.54A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.14.56-1.62.94l-2.39-.96a.5.5 0 0 0-.58.22L2.63 8.48a.5.5 0 0 0 .12.61l2.03 1.58c-.05.3-.08.63-.08.94s.02.64.07.94l-2.03 1.58a.5.5 0 0 0-.12.61l1.92 3.32c.14.24.4.32.58.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.28.27.42.5.42h4c.24 0 .46-.14.5-.42l.36-2.54c.59-.24 1.13-.55 1.62-.94l2.39.96c.24.09.44 0 .58-.22l1.92-3.32a.5.5 0 0 0-.12-.61zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
-      </button>
-    </div>
-  </header>
-
+<div id="app">
   <main>
-    <!-- MAIN TIMER VIEW -->
+    <!-- HOME -->
     <section id="timerView" class="view active">
+      <h1 class="page-title">My Fast</h1>
 
-      <div class="ring-wrap">
-        <svg class="ring" viewBox="0 0 260 260">
-          <circle class="ring-track" cx="130" cy="130" r="115"></circle>
-          <circle id="ringProgress" class="ring-progress" cx="130" cy="130" r="115"></circle>
-        </svg>
-        <div class="ring-center">
-          <span id="statusLabel" class="status-label">NOT FASTING</span>
-          <span id="elapsedTime" class="elapsed-time">00:00:00</span>
-          <span id="subLabel" class="sub-label">Tap start to begin</span>
-          <span id="finishTime" class="finish-time hidden"></span>
+      <div class="hero">
+        <div class="ring-wrap">
+          <svg class="ring" viewBox="0 0 260 260">
+            <circle class="ring-track" cx="130" cy="130" r="115"></circle>
+            <circle id="ringProgress" class="ring-progress" cx="130" cy="130" r="115"></circle>
+          </svg>
+          <div class="ring-center">
+            <span id="statusLabel" class="status-label">Not fasting</span>
+            <span id="elapsedTime" class="elapsed-time">00:00:00</span>
+            <span id="subLabel" class="sub-label">Tap start to begin</span>
+          </div>
+        </div>
+        <div class="hero-pills">
+          <span id="finishTime" class="hero-pill hidden"></span>
+          <button id="editStartBtn" class="hero-pill hero-pill-btn hidden">Edit start</button>
         </div>
       </div>
 
-      <div id="targetPicker" class="target-picker">
-        <button class="preset" data-hours="16">16:8</button>
-        <button class="preset" data-hours="18">18:6</button>
-        <button class="preset" data-hours="20">20:4</button>
-        <button class="preset" data-hours="24">OMAD</button>
-        <button class="preset" data-hours="custom">Custom</button>
+      <div class="group-title">Goal</div>
+      <div id="targetPicker" class="chip-row target-picker">
+        <button class="chip preset" data-hours="16">16:8</button>
+        <button class="chip preset" data-hours="18">18:6</button>
+        <button class="chip preset" data-hours="20">20:4</button>
+        <button class="chip preset" data-hours="24">OMAD</button>
+        <button class="chip preset" data-hours="custom">Custom</button>
       </div>
-
       <div id="customTargetWrap" class="custom-target-wrap hidden">
-        <input type="number" id="customTargetInput" min="1" max="72" step="0.5" value="16">
+        <input type="number" id="customTargetInput" min="1" max="72" step="0.5" value="16" inputmode="decimal">
         <span>hours</span>
       </div>
 
-      <button id="mainActionBtn" class="main-action-btn">Start Fast</button>
-      <button id="editStartBtn" class="text-btn hidden">Edit start time</button>
-
+      <button id="mainActionBtn" class="btn btn-primary main-action-btn">Start Fast</button>
     </section>
 
-    <!-- HISTORY VIEW -->
+    <!-- HISTORY -->
     <section id="historyView" class="view">
-      <div class="history-header">
-        <button id="backBtn" class="icon-btn" aria-label="Back">
-          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-        </button>
-        <h2>History</h2>
-      </div>
+      <h1 class="page-title">History</h1>
 
       <div class="stats-row">
         <div class="stat-box">
@@ -88,7 +74,7 @@
         </div>
         <div class="stat-box">
           <span id="statLongest" class="stat-value">0h</span>
-          <span class="stat-label">Longest fast</span>
+          <span class="stat-label">Longest</span>
         </div>
       </div>
 
@@ -97,11 +83,11 @@
           <span class="chart-title">Hours per day</span>
           <div class="month-nav">
             <button id="chartPrevMonthBtn" class="month-nav-btn" aria-label="Previous month">
-              <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
             </button>
             <span id="chartMonthLabel" class="month-nav-label">Month</span>
             <button id="chartNextMonthBtn" class="month-nav-btn" aria-label="Next month">
-              <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12z"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
             </button>
           </div>
         </div>
@@ -114,191 +100,243 @@
         <div id="chartLabels" class="chart-labels"></div>
       </div>
 
-      <div class="section-label-row">
-        <span class="section-label">Recent fasts</span>
-        <button id="addFastBtn" class="text-btn accent">+ Add fast</button>
+      <div class="section-title">
+        <span>Fasts</span>
+        <button id="addFastBtn" class="pill-btn">+ Add</button>
       </div>
-      <ul id="historyList" class="history-list"></ul>
-      <p id="historyEmpty" class="empty-msg hidden">No fasts logged yet.</p>
-      <button id="historyLoadMoreBtn" class="chip-btn load-more-btn hidden">Load more</button>
+      <ul id="historyList" class="group history-list"></ul>
+      <div id="historyEmpty" class="empty-state hidden">
+        <div class="empty-title">No fasts yet</div>
+        <div class="empty-copy">Finished fasts show up here.</div>
+      </div>
+      <button id="historyLoadMoreBtn" class="btn btn-secondary load-more-btn hidden">Load more</button>
     </section>
 
-    <!-- SETTINGS VIEW -->
+    <!-- SETTINGS -->
     <section id="settingsView" class="view">
-      <div class="history-header">
-        <button id="settingsBackBtn" class="icon-btn" aria-label="Back">
-          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-        </button>
-        <h2>Settings</h2>
-      </div>
+      <h1 class="page-title">Settings</h1>
 
-      <div class="settings-section">
-        <div class="settings-label">Appearance</div>
-        <div id="themeToggle" class="period-toggle theme-toggle">
-          <button class="period-btn theme-btn" data-theme="light">Light</button>
-          <button class="period-btn theme-btn" data-theme="dark">Dark</button>
-          <button class="period-btn theme-btn" data-theme="system">System</button>
+      <div class="profile">
+        <div id="profileAvatar" class="profile-avatar">?</div>
+        <div class="profile-text">
+          <div id="accountEmail" class="profile-email"></div>
+          <div class="profile-status">Your fasts are private to you</div>
         </div>
       </div>
 
-      <div class="settings-section">
-        <div class="settings-row">
-          <div>
-            <div class="settings-label">Notifications</div>
-            <div class="settings-sublabel" id="notifStatusText">Off</div>
+      <div class="group-title">Appearance</div>
+      <div class="group">
+        <div class="row">
+          <div class="row-text"><div class="row-title">Theme</div></div>
+          <div id="themeToggle" class="segmented">
+            <button class="theme-btn" data-theme="light">Light</button>
+            <button class="theme-btn" data-theme="dark">Dark</button>
+            <button class="theme-btn" data-theme="system">Auto</button>
           </div>
-          <button id="settingsNotifToggle" class="toggle-switch" role="switch" aria-checked="false">
+        </div>
+      </div>
+
+      <div class="group-title">Notifications</div>
+      <div class="group">
+        <div class="row">
+          <div class="row-text">
+            <div class="row-title">Notifications</div>
+            <div class="row-sub" id="notifStatusText">Off</div>
+          </div>
+          <button id="settingsNotifToggle" class="toggle-switch" role="switch" aria-checked="false" aria-label="Notifications">
             <span class="toggle-knob"></span>
           </button>
         </div>
-        <div class="settings-row">
-          <div>
-            <div class="settings-label">Remind me to start</div>
-            <div class="settings-sublabel" id="startReminderText">Off</div>
+        <div class="row">
+          <div class="row-text">
+            <div class="row-title">Remind me to start</div>
+            <div class="row-sub" id="startReminderText">Off</div>
           </div>
-          <button id="startReminderToggle" class="toggle-switch" role="switch" aria-checked="false">
+          <button id="startReminderToggle" class="toggle-switch" role="switch" aria-checked="false" aria-label="Remind me to start">
             <span class="toggle-knob"></span>
           </button>
         </div>
-        <div id="startReminderTimeRow" class="settings-row hidden">
-          <div class="settings-sublabel">Time</div>
+        <div id="startReminderTimeRow" class="row hidden">
+          <div class="row-text"><div class="row-title">Time</div></div>
           <div class="time-select">
-            <select id="startReminderHour" aria-label="Hour"></select>
+            <select id="startReminderHour" class="row-select" aria-label="Hour"></select>
             <span>:</span>
-            <select id="startReminderMinute" aria-label="Minute"></select>
+            <select id="startReminderMinute" class="row-select" aria-label="Minute"></select>
           </div>
         </div>
       </div>
 
-      <div class="settings-section">
-        <div class="settings-label">Data</div>
-        <div class="data-actions">
-          <button id="settingsExportBtn" class="chip-btn">
-            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>
-            Export
-          </button>
-          <button id="settingsShareBtn" class="chip-btn hidden">
-            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L7.04 9.81C6.5 9.31 5.79 9 5 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
-            Share
-          </button>
-          <button id="settingsImportBtn" class="chip-btn">
-            <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 15v4H5v-4H3v4c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-4h-2zM12 3 6.5 8.5l1.41 1.41L11 6.83V16h2V6.83l3.09 3.08L17.5 8.5z"/></svg>
-            Import
-          </button>
-        </div>
-        <div class="settings-sublabel">Your fasts are saved in your account and backed up automatically every day.</div>
-        <button id="resetDataBtn" class="danger-btn">Clear all data</button>
+      <div class="group-title">Data</div>
+      <div class="group">
+        <button id="settingsExportBtn" class="row row-btn">
+          <span class="avatar small"><svg viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg></span>
+          <span class="row-text"><span class="row-title">Export</span></span>
+          <span class="chev"></span>
+        </button>
+        <button id="settingsImportBtn" class="row row-btn">
+          <span class="avatar small"><svg viewBox="0 0 24 24"><path d="M12 15V4m0 11l-4-4m4 4l4-4M5 20h14" transform="rotate(180 12 12)"/></svg></span>
+          <span class="row-text"><span class="row-title">Import</span></span>
+          <span class="chev"></span>
+        </button>
+        <button id="resetDataBtn" class="row row-btn row-danger">
+          <span class="avatar small a-red"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></span>
+          <span class="row-text"><span class="row-title">Clear all data</span></span>
+        </button>
       </div>
+      <p class="group-note">Your fasts are saved in your account and backed up automatically every night.</p>
 
-      <div id="peopleSection" class="settings-section hidden">
-        <div class="settings-label">People</div>
-        <div class="settings-sublabel">Invited people can create their own account. Their fasts are private.</div>
-        <ul id="inviteList" class="invite-list"></ul>
+      <div id="peopleSection" class="hidden">
+        <div class="group-title">People</div>
+        <ul id="inviteList" class="group invite-list"></ul>
         <div class="invite-add">
           <input type="email" id="inviteEmailInput" placeholder="friend@example.com" autocomplete="off" autocapitalize="none" spellcheck="false">
-          <button id="inviteBtn" class="chip-btn">Invite</button>
+          <button id="inviteBtn" class="pill-btn">Invite</button>
         </div>
+        <p class="group-note">Invited people can create their own account. Their fasts are private.</p>
       </div>
 
-      <div class="settings-section">
-        <div class="settings-label">Account</div>
-        <div class="settings-sublabel" id="accountEmail"></div>
-        <div class="data-actions account-actions">
-          <button id="changePasswordBtn" class="chip-btn">Change password</button>
-          <button id="logoutBtn" class="chip-btn">Log out</button>
-        </div>
+      <div class="group-title">Account</div>
+      <div class="group">
+        <button id="changePasswordBtn" class="row row-btn">
+          <span class="row-text"><span class="row-title">Change password</span></span>
+          <span class="chev"></span>
+        </button>
+        <button id="logoutBtn" class="row row-btn row-danger">
+          <span class="row-text"><span class="row-title">Log out</span></span>
+        </button>
       </div>
     </section>
   </main>
+
+  <!-- BOTTOM MENU -->
+  <nav class="tabbar" aria-label="Menu">
+    <button class="tab" data-view="timerView" aria-current="page">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5"/></svg>
+      <span>Home</span>
+    </button>
+    <button class="tab" data-view="historyView">
+      <svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>
+      <span>History</span>
+    </button>
+    <button class="tab" data-view="settingsView">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      <span>Settings</span>
+    </button>
+  </nav>
 </div>
 
-<input type="file" id="importFile" accept="application/json,.json" class="hidden">
+<input type="file" id="importFile" accept="application/json,.json,text/plain,.txt" class="hidden">
 
 <!-- LOGIN -->
 <div id="loginScreen" class="login-screen hidden">
   <form id="loginForm" class="login-card" novalidate>
-    <img src="icons/icon-192.png" alt="" class="login-icon">
-    <h1>My Fast</h1>
-    <p class="login-sub">Log in to see your fasts.</p>
-    <label class="field-label" for="loginEmail">Email</label>
-    <input id="loginEmail" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false">
-    <label class="field-label" for="loginPassword">Password</label>
-    <input id="loginPassword" type="password" autocomplete="current-password" minlength="8">
+    <img src="icons/icon-192.png" alt="" class="login-logo">
+    <h1 class="login-title">My Fast</h1>
+    <p class="login-sub">Your fasting timer. Log in to see your fasts.</p>
+    <div class="field">
+      <label for="loginEmail">Email</label>
+      <input id="loginEmail" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="loginPassword">Password</label>
+      <input id="loginPassword" type="password" autocomplete="current-password" minlength="8">
+    </div>
     <p id="loginMsg" class="login-msg" role="alert"></p>
-    <button type="submit" id="loginBtn" class="main-action-btn">Log in</button>
-    <button type="button" id="registerBtn" class="text-btn accent">Create account (invited only)</button>
-    <button type="button" id="forgotBtn" class="text-btn">Forgot password?</button>
+    <div class="modal-actions modal-actions-stack">
+      <button type="submit" id="loginBtn" class="btn btn-primary">Log in</button>
+      <button type="button" id="registerBtn" class="btn btn-secondary">Create account (invited only)</button>
+    </div>
+    <button type="button" id="forgotBtn" class="link-btn">Forgot password?</button>
   </form>
 </div>
 
-<!-- CHANGE PASSWORD MODAL -->
+<!-- CHANGE PASSWORD -->
 <div id="passwordModal" class="modal hidden">
   <div class="modal-card">
+    <div class="sheet-grab"></div>
     <h3>Change password</h3>
-    <label class="field-label" for="newPasswordInput">New password (at least 8 characters)</label>
-    <input type="password" id="newPasswordInput" autocomplete="new-password" minlength="8">
+    <div class="field">
+      <label for="newPasswordInput">New password (at least 8 characters)</label>
+      <input type="password" id="newPasswordInput" autocomplete="new-password" minlength="8">
+    </div>
     <div class="modal-actions">
-      <button id="passwordCancelBtn" class="text-btn">Cancel</button>
-      <button id="passwordSaveBtn" class="main-action-btn small">Save</button>
+      <button id="passwordCancelBtn" class="btn btn-secondary">Cancel</button>
+      <button id="passwordSaveBtn" class="btn btn-primary">Save</button>
     </div>
   </div>
 </div>
 
-<!-- EDIT START TIME MODAL (active fast) -->
+<!-- EDIT START TIME (active fast) -->
 <div id="editModal" class="modal hidden">
   <div class="modal-card">
+    <div class="sheet-grab"></div>
     <h3>Edit start time</h3>
-    <input type="datetime-local" id="editStartInput">
+    <div class="field">
+      <label for="editStartInput">Started at</label>
+      <input type="datetime-local" id="editStartInput">
+    </div>
     <div class="modal-actions">
-      <button id="editCancelBtn" class="text-btn">Cancel</button>
-      <button id="editSaveBtn" class="main-action-btn small">Save</button>
+      <button id="editCancelBtn" class="btn btn-secondary">Cancel</button>
+      <button id="editSaveBtn" class="btn btn-primary">Save</button>
     </div>
   </div>
 </div>
 
-<!-- END FAST MODAL -->
+<!-- END FAST -->
 <div id="endFastModal" class="modal hidden">
   <div class="modal-card">
+    <div class="sheet-grab"></div>
     <h3>End fast</h3>
-    <label class="field-label">Finished at</label>
-    <input type="datetime-local" id="endFastInput">
+    <div class="field">
+      <label for="endFastInput">Finished at</label>
+      <input type="datetime-local" id="endFastInput">
+    </div>
     <div class="modal-actions">
-      <button id="endFastCancelBtn" class="text-btn">Cancel</button>
-      <button id="endFastConfirmBtn" class="main-action-btn small stop">End Fast</button>
+      <button id="endFastCancelBtn" class="btn btn-secondary">Cancel</button>
+      <button id="endFastConfirmBtn" class="btn btn-danger">End Fast</button>
     </div>
   </div>
 </div>
 
-<!-- ADD / EDIT PAST FAST MODAL -->
+<!-- ADD / EDIT PAST FAST -->
 <div id="fastEditModal" class="modal hidden">
   <div class="modal-card">
+    <div class="sheet-grab"></div>
     <h3 id="fastEditTitle">Edit fast</h3>
-    <label class="field-label">Start</label>
-    <input type="datetime-local" id="fastEditStartInput">
-    <label class="field-label">End</label>
-    <input type="datetime-local" id="fastEditEndInput">
-    <label class="field-label">Goal (hours)</label>
-    <input type="number" id="fastEditTargetInput" min="1" max="72" step="0.5">
-    <div class="modal-actions">
-      <button id="fastEditCancelBtn" class="text-btn">Cancel</button>
-      <button id="fastEditSaveBtn" class="main-action-btn small">Save</button>
+    <div class="field">
+      <label for="fastEditStartInput">Start</label>
+      <input type="datetime-local" id="fastEditStartInput">
     </div>
+    <div class="field">
+      <label for="fastEditEndInput">End</label>
+      <input type="datetime-local" id="fastEditEndInput">
+    </div>
+    <div class="field">
+      <label for="fastEditTargetInput">Goal (hours)</label>
+      <input type="number" id="fastEditTargetInput" min="1" max="72" step="0.5" inputmode="decimal">
+    </div>
+    <div class="modal-actions">
+      <button id="fastEditCancelBtn" class="btn btn-secondary">Cancel</button>
+      <button id="fastEditSaveBtn" class="btn btn-primary">Save</button>
+    </div>
+    <button id="fastEditDeleteBtn" class="btn btn-text-danger full">Delete this fast</button>
   </div>
 </div>
 
-<!-- GENERIC CONFIRM / ALERT DIALOG -->
-<div id="dialogModal" class="modal hidden">
+<!-- CONFIRM / ALERT -->
+<div id="dialogModal" class="modal modal-top hidden">
   <div class="modal-card">
+    <div class="sheet-grab"></div>
     <h3 id="dialogTitle"></h3>
     <p id="dialogMessage" class="dialog-message"></p>
     <div class="modal-actions">
-      <button id="dialogCancelBtn" class="text-btn">Cancel</button>
-      <button id="dialogOkBtn" class="main-action-btn small">OK</button>
+      <button id="dialogCancelBtn" class="btn btn-secondary">Cancel</button>
+      <button id="dialogOkBtn" class="btn btn-primary">OK</button>
     </div>
   </div>
 </div>
 
 <script src="supabase.js"></script>
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>
