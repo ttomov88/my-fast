@@ -399,14 +399,38 @@ main {
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 
-/* 24-hour date + time */
-.dt-field { display: flex; align-items: center; gap: 6px; color: var(--text-2); font-weight: 600; }
-.dt-field input[type="date"] {
-  flex: 1; min-width: 0; padding: 12px; min-height: 52px; border-radius: var(--radius-sm); border: 2px solid transparent;
-  font-size: 16px; background: var(--surface); color: var(--text); outline: none; user-select: text;
+/* Date + time buttons (dd.mm.yyyy, 24-hour), each opening its own sheet */
+.dt-field { display: flex; gap: 8px; }
+.dt-btn {
+  min-height: 52px; padding: 0 14px; border-radius: var(--radius-sm); border: 2px solid transparent;
+  background: var(--surface); color: var(--text); font-size: 16px; font-weight: 600; cursor: pointer;
+  font-variant-numeric: tabular-nums; text-align: left;
 }
-.dt-field input[type="date"]:focus { border-color: var(--accent); }
-.dt-field .row-select { min-height: 52px; padding: 0 12px; background: var(--surface); border-radius: var(--radius-sm); font-size: 16px; }
+.dt-btn:active { background: var(--surface-press); }
+.dt-date { flex: 1; }
+.dt-time { width: 96px; text-align: center; }
+
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 12px; }
+.cal-title { font-size: 18px; font-weight: 700; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-wd { text-align: center; font-size: 12.5px; font-weight: 600; color: var(--text-2); padding: 6px 0; }
+.cal-day {
+  border: none; background: none; font: inherit; font-size: 16px; color: var(--text); cursor: pointer;
+  height: 44px; border-radius: 12px; font-variant-numeric: tabular-nums;
+}
+.cal-day:active { background: var(--surface-press); }
+.cal-day:disabled { color: var(--text-3); opacity: 0.5; cursor: default; }
+.cal-day.today { box-shadow: inset 0 0 0 2px var(--accent-soft); color: var(--accent); font-weight: 700; }
+.cal-day.sel { background: var(--accent); color: var(--accent-text); font-weight: 700; }
+
+.time-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 16px; }
+.time-grid button {
+  border: none; height: 42px; border-radius: 12px; background: var(--surface); color: var(--text);
+  font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.time-grid button:active { background: var(--surface-press); }
+.time-grid button.sel { background: var(--accent); color: var(--accent-text); }
+#timeModal h3 { text-align: center; font-size: 34px; font-variant-numeric: tabular-nums; margin-bottom: 8px; }
 
 /* people */
 .invite-list .inv-status { display: block; font-size: 12.5px; font-weight: 500; color: var(--text-2); margin-top: 2px; }

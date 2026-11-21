@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="My Fast">
 
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 
@@ -283,7 +283,7 @@
     <h3>Edit start time</h3>
     <div class="field">
       <label>Started at</label>
-      <div class="dt-field" id="editStartInput"><input type="date" aria-label="Date"><select class="row-select dt-h" aria-label="Hour"></select><span>:</span><select class="row-select dt-m" aria-label="Minute"></select></div>
+      <div class="dt-field" id="editStartInput"><button type="button" class="dt-btn dt-date"></button><button type="button" class="dt-btn dt-time"></button></div>
     </div>
     <div class="modal-actions">
       <button id="editCancelBtn" class="btn btn-secondary">Cancel</button>
@@ -299,7 +299,7 @@
     <h3>End fast</h3>
     <div class="field">
       <label>Finished at</label>
-      <div class="dt-field" id="endFastInput"><input type="date" aria-label="Date"><select class="row-select dt-h" aria-label="Hour"></select><span>:</span><select class="row-select dt-m" aria-label="Minute"></select></div>
+      <div class="dt-field" id="endFastInput"><button type="button" class="dt-btn dt-date"></button><button type="button" class="dt-btn dt-time"></button></div>
     </div>
     <div class="modal-actions">
       <button id="endFastCancelBtn" class="btn btn-secondary">Cancel</button>
@@ -315,11 +315,11 @@
     <h3 id="fastEditTitle">Edit fast</h3>
     <div class="field">
       <label>Start</label>
-      <div class="dt-field" id="fastEditStartInput"><input type="date" aria-label="Date"><select class="row-select dt-h" aria-label="Hour"></select><span>:</span><select class="row-select dt-m" aria-label="Minute"></select></div>
+      <div class="dt-field" id="fastEditStartInput"><button type="button" class="dt-btn dt-date"></button><button type="button" class="dt-btn dt-time"></button></div>
     </div>
     <div class="field">
       <label>End</label>
-      <div class="dt-field" id="fastEditEndInput"><input type="date" aria-label="Date"><select class="row-select dt-h" aria-label="Hour"></select><span>:</span><select class="row-select dt-m" aria-label="Minute"></select></div>
+      <div class="dt-field" id="fastEditEndInput"><button type="button" class="dt-btn dt-date"></button><button type="button" class="dt-btn dt-time"></button></div>
     </div>
     <div class="field">
       <label for="fastEditTargetInput">Goal (hours)</label>
@@ -330,6 +330,38 @@
       <button id="fastEditSaveBtn" class="btn btn-primary">Save</button>
     </div>
     <button id="fastEditDeleteBtn" class="btn btn-text-danger full">Delete this fast</button>
+  </div>
+</div>
+
+<!-- CALENDAR -->
+<div id="calendarModal" class="modal hidden">
+  <div class="modal-card cal-sheet">
+    <div class="sheet-grab"></div>
+    <div class="cal-head">
+      <button type="button" id="calPrev" class="month-nav-btn" aria-label="Previous month"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <span id="calTitle" class="cal-title"></span>
+      <button type="button" id="calNext" class="month-nav-btn" aria-label="Next month"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="modal-actions">
+      <button type="button" id="calToday" class="btn btn-secondary">Today</button>
+    </div>
+  </div>
+</div>
+
+<!-- TIME -->
+<div id="timeModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="sheet-grab"></div>
+    <h3 id="timeTitle">19:30</h3>
+    <div class="group-title">Hour</div>
+    <div class="time-grid" id="hourGrid"></div>
+    <div class="group-title">Minute</div>
+    <div class="time-grid" id="minuteGrid"></div>
+    <div class="modal-actions">
+      <button type="button" id="timeNow" class="btn btn-secondary">Now</button>
+      <button type="button" id="timeDone" class="btn btn-primary">Done</button>
+    </div>
   </div>
 </div>
 
@@ -347,6 +379,6 @@
 </div>
 
 <script src="supabase.js"></script>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

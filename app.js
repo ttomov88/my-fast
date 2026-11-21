@@ -650,25 +650,124 @@
     closeSheet(el.editModal);
   });
 
-  // 24-hour date + time fields (the phone's own time picker may show AM/PM).
+  // Date + time fields: dd.mm.yyyy and 24-hour, each opening a small sheet (the phone's own
+  // pickers follow its language and may show US dates or AM/PM).
   const pad2 = (n) => String(n).padStart(2, '0');
-  document.querySelectorAll('.dt-field').forEach(f => {
-    const h = f.querySelector('.dt-h'), m = f.querySelector('.dt-m');
-    for (let i = 0; i < 24; i++) h.add(new Option(pad2(i), pad2(i)));
-    for (let i = 0; i < 60; i++) m.add(new Option(pad2(i), pad2(i)));
-  });
+  const fmtDate = (d) => `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()}`;
+  const fmtTime = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   function setDT(f, d) {
-    f.querySelector('input').value = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-    f.querySelector('.dt-h').value = pad2(d.getHours());
-    f.querySelector('.dt-m').value = pad2(d.getMinutes());
+    f._date = new Date(d.getTime());
+    f._date.setSeconds(0, 0);
+    f.querySelector('.dt-date').textContent = fmtDate(f._date);
+    f.querySelector('.dt-time').textContent = fmtTime(f._date);
   }
   function getDT(f) {
-    const v = f.querySelector('input').value;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
-    const [y, mo, da] = v.split('-').map(Number);
-    const d = new Date(y, mo - 1, da, Number(f.querySelector('.dt-h').value), Number(f.querySelector('.dt-m').value));
-    return isNaN(d.getTime()) ? null : d;
+    return f._date ? new Date(f._date.getTime()) : null;
   }
+
+  const calModal = $('calendarModal'), calGrid = $('calGrid'), calTitle = $('calTitle');
+  const timeModal = $('timeModal'), hourGrid = $('hourGrid'), minuteGrid = $('minuteGrid'), timeTitle = $('timeTitle');
+  let pickField = null, calMonth = null, pickTime = null;
+
+  function renderCalendar() {
+    calTitle.textContent = calMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    calGrid.innerHTML = '';
+    ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].forEach(w => {
+      const h = document.createElement('div');
+      h.className = 'cal-wd';
+      h.textContent = w;
+      calGrid.appendChild(h);
+    });
+    const first = new Date(calMonth.getFullYear(), calMonth.getMonth(), 1);
+    const lead = (first.getDay() + 6) % 7;   // Monday first
+    for (let i = 0; i < lead; i++) calGrid.appendChild(document.createElement('span'));
+    const days = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0).getDate();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const sel = pickField._date;
+    for (let d = 1; d <= days; d++) {
+      const day = new Date(calMonth.getFullYear(), calMonth.getMonth(), d);
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cal-day';
+      b.textContent = d;
+      b.dataset.day = d;
+      if (day > today) b.disabled = true;   // fasts are never in the future
+      if (day.getTime() === today.getTime()) b.classList.add('today');
+      if (sel && inMonth(sel, day) && sel.getDate() === d) b.classList.add('sel');
+      calGrid.appendChild(b);
+    }
+    const nextMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1);
+    $('calNext').disabled = nextMonth > today;
+  }
+  calGrid.addEventListener('click', (e) => {
+    const b = e.target.closest('.cal-day');
+    if (!b || b.disabled) return;
+    const d = new Date(pickField._date.getTime());
+    d.setFullYear(calMonth.getFullYear(), calMonth.getMonth(), Number(b.dataset.day));
+    setDT(pickField, d);
+    closeSheet(calModal);
+  });
+  $('calPrev').addEventListener('click', () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); renderCalendar(); });
+  $('calNext').addEventListener('click', () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); renderCalendar(); });
+  $('calToday').addEventListener('click', () => {
+    const d = new Date(pickField._date.getTime()), t = new Date();
+    d.setFullYear(t.getFullYear(), t.getMonth(), t.getDate());
+    setDT(pickField, d);
+    closeSheet(calModal);
+  });
+
+  (function buildTimeGrids() {
+    for (let h = 0; h < 24; h++) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = pad2(h); b.dataset.h = h;
+      hourGrid.appendChild(b);
+    }
+    for (let m = 0; m < 60; m += 5) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = pad2(m); b.dataset.m = m;
+      minuteGrid.appendChild(b);
+    }
+  })();
+  function renderTime() {
+    timeTitle.textContent = fmtTime(pickTime);
+    hourGrid.querySelectorAll('button').forEach(b => b.classList.toggle('sel', Number(b.dataset.h) === pickTime.getHours()));
+    minuteGrid.querySelectorAll('button').forEach(b => b.classList.toggle('sel', Number(b.dataset.m) === pickTime.getMinutes()));
+  }
+  hourGrid.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    pickTime.setHours(Number(b.dataset.h));
+    renderTime();
+  });
+  minuteGrid.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    pickTime.setMinutes(Number(b.dataset.m));
+    setDT(pickField, pickTime);
+    closeSheet(timeModal);
+  });
+  $('timeNow').addEventListener('click', () => {
+    const n = new Date();
+    pickTime.setHours(n.getHours(), n.getMinutes());
+    setDT(pickField, pickTime);
+    closeSheet(timeModal);
+  });
+  $('timeDone').addEventListener('click', () => { setDT(pickField, pickTime); closeSheet(timeModal); });
+
+  document.querySelectorAll('.dt-field').forEach(f => {
+    f.querySelector('.dt-date').addEventListener('click', () => {
+      pickField = f;
+      calMonth = new Date(f._date.getFullYear(), f._date.getMonth(), 1);
+      renderCalendar();
+      openSheet(calModal);
+    });
+    f.querySelector('.dt-time').addEventListener('click', () => {
+      pickField = f;
+      pickTime = new Date(f._date.getTime());
+      renderTime();
+      openSheet(timeModal);
+    });
+  });
 
   // ---------- Add / edit a past fast ----------
   function openFastEditModal(id) {
