@@ -1,105 +1,93 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'fasttrack_state_v1';
+  // ---------- Account ----------
+  // Fasts live in your account (Supabase, shared project with My Fleet; separate tables).
+  // A copy is kept on the phone so the app opens instantly and can be viewed offline.
+  const SUPABASE_URL = 'https://lsyihonmzxpjnmiueqgp.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_VOsIQ53p2Lulq6-Ov4m7sg_5KywhXPr';
+  const API_URL = SUPABASE_URL + '/functions/v1/fast-api';
+  const ADMIN_EMAIL = 'ttomov88@gmail.com';
+  const AUTH_KEY = 'myfast_auth';           // must differ from My Fleet's (same website origin)
+  const CACHE_KEY = 'myfast_cache_v1';
+  const THEME_KEY = 'myfast_theme';
+  const OLD_KEY = 'fasttrack_state_v1';     // data from the phone-only version, moved on first login
+
   const RING_CIRC = 2 * Math.PI * 115; // 722.566
   const PRESET_HOURS = [16, 18, 20, 24];
+  const DEFAULT_REMINDER = '20:00';
+
+  const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { storageKey: AUTH_KEY, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+  }) : null;
 
   // ---------- State ----------
-  // state.current: { startISO, targetHours, goalNotified } | null
-  // state.history: [{ startISO, endISO, targetHours }]
-  let state = load();
-
-  function defaultState() {
-    return {
-      current: null,
-      history: [],
-      lastTargetHours: 16,
-      notificationsEnabled: true,
-      theme: 'light',
-    };
+  // state.current: { startISO, targetHours } | null
+  // state.history: [{ id, startISO, endISO, targetHours }] newest first
+  function emptyState() {
+    return { userId: null, email: '', current: null, history: [], lastTargetHours: 16, startReminder: null };
   }
+  let state = loadCache();
+  let theme = loadTheme();
 
-  function load() {
+  function loadCache() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const merged = Object.assign(defaultState(), parsed);
-        if (!['light', 'dark', 'system'].includes(merged.theme)) merged.theme = 'light';
-        return merged;
-      }
+      const v = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+      if (v && v.userId && Array.isArray(v.history)) return Object.assign(emptyState(), v);
     } catch (e) {}
-    return defaultState();
+    return emptyState();
   }
-
-  function save() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  function saveCache() {
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function loadTheme() {
+    try {
+      const t = localStorage.getItem(THEME_KEY);
+      if (['light', 'dark', 'system'].includes(t)) return t;
+      const old = JSON.parse(localStorage.getItem(OLD_KEY) || 'null');
+      if (old && ['light', 'dark', 'system'].includes(old.theme)) return old.theme;
+    } catch (e) {}
+    return 'light';
   }
 
   // ---------- DOM ----------
+  const $ = (id) => document.getElementById(id);
   const el = {
-    timerView: document.getElementById('timerView'),
-    historyView: document.getElementById('historyView'),
-    settingsView: document.getElementById('settingsView'),
-    historyBtn: document.getElementById('historyBtn'),
-    appTitle: document.getElementById('appTitle'),
-    backBtn: document.getElementById('backBtn'),
-    settingsBtn: document.getElementById('settingsBtnTop'),
-    settingsBackBtn: document.getElementById('settingsBackBtn'),
-    ringProgress: document.getElementById('ringProgress'),
-    statusLabel: document.getElementById('statusLabel'),
-    elapsedTime: document.getElementById('elapsedTime'),
-    subLabel: document.getElementById('subLabel'),
-    finishTime: document.getElementById('finishTime'),
-    targetPicker: document.getElementById('targetPicker'),
-    customTargetWrap: document.getElementById('customTargetWrap'),
-    customTargetInput: document.getElementById('customTargetInput'),
-    mainActionBtn: document.getElementById('mainActionBtn'),
-    editStartBtn: document.getElementById('editStartBtn'),
-    editModal: document.getElementById('editModal'),
-    editStartInput: document.getElementById('editStartInput'),
-    editCancelBtn: document.getElementById('editCancelBtn'),
-    editSaveBtn: document.getElementById('editSaveBtn'),
-    endFastModal: document.getElementById('endFastModal'),
-    endFastInput: document.getElementById('endFastInput'),
-    endFastCancelBtn: document.getElementById('endFastCancelBtn'),
-    endFastConfirmBtn: document.getElementById('endFastConfirmBtn'),
-    historyList: document.getElementById('historyList'),
-    historyEmpty: document.getElementById('historyEmpty'),
-    historyLoadMoreBtn: document.getElementById('historyLoadMoreBtn'),
-    statAvg: document.getElementById('statAvg'),
-    statCount: document.getElementById('statCount'),
-    statLongest: document.getElementById('statLongest'),
-    importFile: document.getElementById('importFile'),
-    chartBars: document.getElementById('chartBars'),
-    chartLabels: document.getElementById('chartLabels'),
-    chartMonthLabel: document.getElementById('chartMonthLabel'),
-    chartPrevMonthBtn: document.getElementById('chartPrevMonthBtn'),
-    chartNextMonthBtn: document.getElementById('chartNextMonthBtn'),
-    addFastBtn: document.getElementById('addFastBtn'),
+    timerView: $('timerView'), historyView: $('historyView'), settingsView: $('settingsView'),
+    historyBtn: $('historyBtn'), appTitle: $('appTitle'), backBtn: $('backBtn'),
+    settingsBtn: $('settingsBtnTop'), settingsBackBtn: $('settingsBackBtn'),
+    ringProgress: $('ringProgress'), statusLabel: $('statusLabel'), elapsedTime: $('elapsedTime'),
+    subLabel: $('subLabel'), finishTime: $('finishTime'),
+    targetPicker: $('targetPicker'), customTargetWrap: $('customTargetWrap'), customTargetInput: $('customTargetInput'),
+    mainActionBtn: $('mainActionBtn'), editStartBtn: $('editStartBtn'),
+    editModal: $('editModal'), editStartInput: $('editStartInput'), editCancelBtn: $('editCancelBtn'), editSaveBtn: $('editSaveBtn'),
+    endFastModal: $('endFastModal'), endFastInput: $('endFastInput'), endFastCancelBtn: $('endFastCancelBtn'), endFastConfirmBtn: $('endFastConfirmBtn'),
+    historyList: $('historyList'), historyEmpty: $('historyEmpty'), historyLoadMoreBtn: $('historyLoadMoreBtn'),
+    statAvg: $('statAvg'), statCount: $('statCount'), statLongest: $('statLongest'),
+    importFile: $('importFile'),
+    chartBars: $('chartBars'), chartLabels: $('chartLabels'), chartMonthLabel: $('chartMonthLabel'),
+    chartPrevMonthBtn: $('chartPrevMonthBtn'), chartNextMonthBtn: $('chartNextMonthBtn'),
+    addFastBtn: $('addFastBtn'),
     // settings
-    themeToggle: document.getElementById('themeToggle'),
-    settingsNotifToggle: document.getElementById('settingsNotifToggle'),
-    notifStatusText: document.getElementById('notifStatusText'),
-    settingsExportBtn: document.getElementById('settingsExportBtn'),
-    settingsShareBtn: document.getElementById('settingsShareBtn'),
-    settingsImportBtn: document.getElementById('settingsImportBtn'),
-    resetDataBtn: document.getElementById('resetDataBtn'),
+    themeToggle: $('themeToggle'),
+    settingsNotifToggle: $('settingsNotifToggle'), notifStatusText: $('notifStatusText'),
+    startReminderToggle: $('startReminderToggle'), startReminderText: $('startReminderText'),
+    startReminderTimeRow: $('startReminderTimeRow'), startReminderHour: $('startReminderHour'), startReminderMinute: $('startReminderMinute'),
+    settingsExportBtn: $('settingsExportBtn'), settingsShareBtn: $('settingsShareBtn'), settingsImportBtn: $('settingsImportBtn'),
+    resetDataBtn: $('resetDataBtn'),
+    peopleSection: $('peopleSection'), inviteList: $('inviteList'), inviteEmailInput: $('inviteEmailInput'), inviteBtn: $('inviteBtn'),
+    accountEmail: $('accountEmail'), changePasswordBtn: $('changePasswordBtn'), logoutBtn: $('logoutBtn'),
+    passwordModal: $('passwordModal'), newPasswordInput: $('newPasswordInput'), passwordCancelBtn: $('passwordCancelBtn'), passwordSaveBtn: $('passwordSaveBtn'),
+    // login
+    loginScreen: $('loginScreen'), loginForm: $('loginForm'), loginEmail: $('loginEmail'), loginPassword: $('loginPassword'),
+    loginMsg: $('loginMsg'), registerBtn: $('registerBtn'), forgotBtn: $('forgotBtn'),
     // fast add/edit modal
-    fastEditModal: document.getElementById('fastEditModal'),
-    fastEditTitle: document.getElementById('fastEditTitle'),
-    fastEditStartInput: document.getElementById('fastEditStartInput'),
-    fastEditEndInput: document.getElementById('fastEditEndInput'),
-    fastEditTargetInput: document.getElementById('fastEditTargetInput'),
-    fastEditCancelBtn: document.getElementById('fastEditCancelBtn'),
-    fastEditSaveBtn: document.getElementById('fastEditSaveBtn'),
+    fastEditModal: $('fastEditModal'), fastEditTitle: $('fastEditTitle'),
+    fastEditStartInput: $('fastEditStartInput'), fastEditEndInput: $('fastEditEndInput'), fastEditTargetInput: $('fastEditTargetInput'),
+    fastEditCancelBtn: $('fastEditCancelBtn'), fastEditSaveBtn: $('fastEditSaveBtn'),
     // generic dialog
-    dialogModal: document.getElementById('dialogModal'),
-    dialogTitle: document.getElementById('dialogTitle'),
-    dialogMessage: document.getElementById('dialogMessage'),
-    dialogOkBtn: document.getElementById('dialogOkBtn'),
-    dialogCancelBtn: document.getElementById('dialogCancelBtn'),
+    dialogModal: $('dialogModal'), dialogTitle: $('dialogTitle'), dialogMessage: $('dialogMessage'),
+    dialogOkBtn: $('dialogOkBtn'), dialogCancelBtn: $('dialogCancelBtn'),
   };
 
   el.ringProgress.style.strokeDasharray = RING_CIRC;
@@ -109,7 +97,7 @@
   let currentChartMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const HISTORY_PAGE_SIZE = 30;
   let historyRenderLimit = HISTORY_PAGE_SIZE;
-  let editingFastIndex = null; // null = adding a new fast; number = editing state.history[idx]
+  let editingFastId = null; // null = adding a new fast; number = editing that fast
 
   // ---------- Generic styled dialog (replaces confirm()/alert()) ----------
   let dialogResolve = null;
@@ -143,12 +131,109 @@
     return showDialog({ title, message, showCancel: false, okText: 'OK' });
   }
 
+  // ---------- Talking to the account ----------
+  function must(res) {
+    if (res && res.error) throw res.error;
+    return res ? res.data : null;
+  }
+
+  async function accessToken() {
+    try { const { data } = await sb.auth.getSession(); return data.session ? data.session.access_token : null; } catch (e) { return null; }
+  }
+
+  async function api(action, body) {
+    const token = await accessToken();
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: `Bearer ${token || SUPABASE_KEY}` },
+      body: JSON.stringify(Object.assign({ action }, body || {})),
+    });
+    let out = {};
+    try { out = await res.json(); } catch (e) {}
+    if (!res.ok && !out.error) out.error = 'server_error';
+    return out;
+  }
+
+  // Every change is saved to the account straight away. If that fails (no internet), nothing
+  // changes on screen and you're told, so the phone and the account never disagree.
+  let busy = false;
+  async function saveChange(fn, failTitle = "Couldn't save") {
+    if (busy) return false;
+    busy = true;
+    try {
+      await fn();
+      saveCache();
+      return true;
+    } catch (e) {
+      const offline = !navigator.onLine || (e && /fetch|network/i.test(String(e.message || e)));
+      const duplicate = e && e.code === '23505';
+      await showAlert(failTitle, duplicate
+        ? 'That fast is already in your history.'
+        : offline ? "No internet connection. Try again when you're online." : 'Something went wrong. Please try again.');
+      return false;
+    } finally {
+      busy = false;
+    }
+  }
+
+  const rowToEntry = (r) => ({
+    id: r.id,
+    startISO: new Date(r.start_at).toISOString(),
+    endISO: new Date(r.end_at).toISOString(),
+    targetHours: Number(r.target_hours),
+  });
+  const FAST_COLS = 'id, start_at, end_at, target_hours';
+  const sortHistory = () => state.history.sort((a, b) => new Date(b.startISO) - new Date(a.startISO));
+
+  async function fetchAllFasts() {
+    const out = [];
+    for (let from = 0; ; from += 1000) {
+      const rows = must(await sb.from('fasts').select(FAST_COLS).order('start_at', { ascending: false }).range(from, from + 999));
+      out.push(...rows);
+      if (rows.length < 1000) break;
+    }
+    return out.map(rowToEntry);
+  }
+
+  async function fetchProfile() {
+    const cols = 'current_start, current_target, last_target, start_reminder';
+    let p = must(await sb.from('fast_profiles').select(cols).maybeSingle());
+    if (!p) p = must(await sb.from('fast_profiles').insert({ user_id: state.userId }).select(cols).single());
+    return p;
+  }
+
+  async function loadFromServer() {
+    const [p, history] = await Promise.all([fetchProfile(), fetchAllFasts()]);
+    state.current = p.current_start ? { startISO: new Date(p.current_start).toISOString(), targetHours: Number(p.current_target) } : null;
+    state.lastTargetHours = Number(p.last_target) || 16;
+    state.startReminder = p.start_reminder ? String(p.start_reminder).slice(0, 5) : null;
+    state.history = history;
+    if (!state.current) selectedTargetHours = state.lastTargetHours;
+    saveCache();
+    renderAll();
+  }
+
+  let refreshing = false;
+  async function refresh() {
+    if (refreshing || busy || !state.userId) return;
+    refreshing = true;
+    try { await loadFromServer(); } catch (e) {} finally { refreshing = false; }
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refresh();
+  });
+
+  function updateProfile(fields) {
+    return sb.from('fast_profiles').update(Object.assign({ updated_at: new Date().toISOString() }, fields)).eq('user_id', state.userId);
+  }
+
   // ---------- Theme ----------
   function resolveTheme() {
-    if (state.theme === 'system') {
+    if (theme === 'system') {
       return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
     }
-    return state.theme;
+    return theme;
   }
 
   function applyTheme() {
@@ -156,26 +241,22 @@
     document.documentElement.setAttribute('data-theme', resolved);
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', resolved === 'dark' ? '#0f1115' : '#f4f5f7');
-    if (el.themeToggle) {
-      el.themeToggle.querySelectorAll('.theme-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.theme === state.theme);
-      });
-    }
-  }
-
-  if (el.themeToggle) {
-    el.themeToggle.addEventListener('click', (e) => {
-      const btn = e.target.closest('.theme-btn');
-      if (!btn) return;
-      state.theme = btn.dataset.theme;
-      save();
-      applyTheme();
+    el.themeToggle.querySelectorAll('.theme-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.theme === theme);
     });
   }
 
+  el.themeToggle.addEventListener('click', (e) => {
+    const btn = e.target.closest('.theme-btn');
+    if (!btn) return;
+    theme = btn.dataset.theme;
+    try { localStorage.setItem(THEME_KEY, theme); } catch (err) {}
+    applyTheme();
+  });
+
   if (window.matchMedia) {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const onChange = () => { if (state.theme === 'system') applyTheme(); };
+    const onChange = () => { if (theme === 'system') applyTheme(); };
     if (mq.addEventListener) mq.addEventListener('change', onChange);
     else if (mq.addListener) mq.addListener(onChange);
   }
@@ -183,7 +264,7 @@
   // ---------- View navigation ----------
   function showView(id) {
     [el.timerView, el.historyView, el.settingsView].forEach(v => v.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
+    $(id).classList.add('active');
   }
 
   el.historyBtn.addEventListener('click', () => {
@@ -197,6 +278,8 @@
   el.settingsBtn.addEventListener('click', () => {
     showView('settingsView');
     syncSettingsUI();
+    refreshPushState();
+    loadInvites();
   });
   el.settingsBackBtn.addEventListener('click', () => showView('timerView'));
 
@@ -217,11 +300,17 @@
     }
   }
 
+  // The chosen goal is remembered in the account (used by the "start a fast" reminder text).
+  let targetSaveTimer = null;
   function chooseTarget(hours) {
     selectedTargetHours = hours;
     state.lastTargetHours = hours;
-    save();
+    saveCache();
     setPresetUI(hours);
+    clearTimeout(targetSaveTimer);
+    targetSaveTimer = setTimeout(() => {
+      if (state.userId && hours <= 720) updateProfile({ last_target: hours }).then(() => {}, () => {});
+    }, 800);
   }
 
   el.targetPicker.addEventListener('click', (e) => {
@@ -235,11 +324,10 @@
     }
   });
 
-  function syncCustomValue(v) {
-    v = Number(v);
-    if (v > 0) chooseTarget(v);
-  }
-  el.customTargetInput.addEventListener('input', () => syncCustomValue(el.customTargetInput.value));
+  el.customTargetInput.addEventListener('input', () => {
+    const v = Number(el.customTargetInput.value);
+    if (v > 0 && v <= 72) chooseTarget(v);
+  });
 
   // ---------- Main action ----------
   el.mainActionBtn.addEventListener('click', () => {
@@ -287,139 +375,189 @@
     endFast(endDate);
   });
 
-  function startFast() {
-    state.current = {
-      startISO: new Date().toISOString(),
-      targetHours: selectedTargetHours,
-      goalNotified: false,
-    };
-    save();
-    render();
+  async function startFast() {
+    const startISO = new Date().toISOString();
+    const targetHours = selectedTargetHours;
+    const ok = await saveChange(async () => {
+      must(await updateProfile({ current_start: startISO, current_target: targetHours, last_target: targetHours, goal_notified_for: null }));
+      state.current = { startISO, targetHours };
+      state.lastTargetHours = targetHours;
+    }, "Couldn't start the fast");
+    if (ok) render();
   }
 
-  function endFast(endDate) {
+  async function endFast(endDate) {
     if (!state.current) return;
-    const entry = {
-      startISO: state.current.startISO,
-      endISO: (endDate || new Date()).toISOString(),
-      targetHours: state.current.targetHours,
-    };
-    state.history.unshift(entry);
-    state.current = null;
-    save();
-    render();
-    // Every fast, no exceptions — no setting to turn this off, no throttling.
-    triggerBackupDownload();
+    const ok = await saveChange(async () => {
+      const row = must(await sb.rpc('fast_end', { p_end: endDate.toISOString() }));
+      state.history.unshift(rowToEntry(row));
+      sortHistory();
+      state.current = null;
+    }, "Couldn't end the fast");
+    if (ok) renderAll();
+    else refresh();
   }
 
-  // ---------- Notifications ----------
-  const notifSupported = 'Notification' in window;
+  // ---------- Notifications (sent by the server, so they arrive even with the app closed) ----------
+  const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  let pushOn = false;
 
-  function notifPermission() {
-    return notifSupported ? Notification.permission : 'unsupported';
+  function b64uToBytes(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    s += '='.repeat((4 - (s.length % 4)) % 4);
+    const bin = atob(s), out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  function bytesToB64u(b) {
+    let s = '';
+    for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function withTimeout(promise, ms) {
+    return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
   }
 
-  function notificationsActive() {
-    return notifSupported && Notification.permission === 'granted' && state.notificationsEnabled !== false;
+  async function storeSubscription(sub) {
+    const j = sub.toJSON();
+    must(await sb.from('fast_push_subscriptions').upsert(
+      { endpoint: j.endpoint, user_id: state.userId, p256dh: j.keys.p256dh, auth: j.keys.auth },
+      { onConflict: 'endpoint' }
+    ));
+  }
+
+  async function subscribePush() {
+    if (!pushSupported()) throw new Error('unsupported');
+    if (Notification.permission !== 'granted') {
+      if (await Notification.requestPermission() !== 'granted') throw new Error('denied');
+    }
+    const reg = await withTimeout(navigator.serviceWorker.ready, 10000);
+    const { publicKey } = await api('publicKey');
+    if (!publicKey) throw new Error('server');
+    let sub = await reg.pushManager.getSubscription();
+    const key = sub && sub.options && sub.options.applicationServerKey;
+    if (sub && key && bytesToB64u(new Uint8Array(key)) !== publicKey) { await sub.unsubscribe(); sub = null; }
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(publicKey) });
+    await storeSubscription(sub);
+  }
+
+  async function unsubscribePush() {
+    if (!pushSupported()) return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = reg && await reg.pushManager.getSubscription();
+    if (!sub) return;
+    if (state.userId) await sb.from('fast_push_subscriptions').delete().eq('endpoint', sub.endpoint);
+    await sub.unsubscribe();
+  }
+
+  // What the switch shows is what the phone really does. While on, the sign-up is re-sent to the
+  // account now and then (push services sometimes replace it).
+  let lastPushRefresh = 0;
+  async function refreshPushState() {
+    let on = false;
+    try {
+      if (pushSupported() && Notification.permission === 'granted') {
+        const reg = await navigator.serviceWorker.getRegistration();
+        const sub = reg && await reg.pushManager.getSubscription();
+        on = !!sub;
+        if (sub && state.userId && Date.now() - lastPushRefresh > 6 * 3600 * 1000) {
+          lastPushRefresh = Date.now();
+          storeSubscription(sub).catch(() => { lastPushRefresh = 0; });
+        }
+      }
+    } catch (e) {}
+    pushOn = on;
+    syncSettingsUI();
   }
 
   function syncSettingsUI() {
-    const perm = notifPermission();
-    const active = notificationsActive();
-    el.settingsNotifToggle.classList.toggle('on', active);
-    el.settingsNotifToggle.setAttribute('aria-checked', String(active));
-    if (!notifSupported) {
+    el.settingsNotifToggle.classList.toggle('on', pushOn);
+    el.settingsNotifToggle.setAttribute('aria-checked', String(pushOn));
+    if (!pushSupported()) {
       el.notifStatusText.textContent = 'Not supported on this browser';
-    } else if (perm === 'denied') {
+    } else if (Notification.permission === 'denied') {
       el.notifStatusText.textContent = 'Blocked in browser settings';
-    } else if (active) {
-      el.notifStatusText.textContent = 'Enabled';
+    } else if (pushOn) {
+      el.notifStatusText.textContent = 'On · alert when you reach your goal';
     } else {
-      el.notifStatusText.textContent = 'Not enabled';
+      el.notifStatusText.textContent = 'Off';
     }
 
+    const rem = state.startReminder;
+    el.startReminderToggle.classList.toggle('on', !!rem);
+    el.startReminderToggle.setAttribute('aria-checked', String(!!rem));
+    el.startReminderTimeRow.classList.toggle('hidden', !rem);
+    if (rem) {
+      el.startReminderHour.value = rem.slice(0, 2);
+      el.startReminderMinute.value = rem.slice(3, 5);
+      el.startReminderText.textContent = pushOn
+        ? `Daily at ${rem}, if you're not fasting`
+        : `Daily at ${rem} · turn on notifications to get it`;
+    } else {
+      el.startReminderText.textContent = 'Off';
+    }
+
+    el.accountEmail.textContent = state.email ? `Logged in as ${state.email}` : '';
+    el.peopleSection.classList.toggle('hidden', state.email !== ADMIN_EMAIL);
     applyTheme();
   }
 
-  function requestNotifPermission(cb) {
-    if (!notifSupported) return;
-    Notification.requestPermission().then((perm) => {
-      syncSettingsUI();
-      if (cb) cb(perm);
-    });
-  }
-
+  let pushBusy = false;
   el.settingsNotifToggle.addEventListener('click', async () => {
-    const perm = notifPermission();
-    if (perm === 'denied') {
-      await showAlert('Notifications blocked', 'Notifications are blocked for this app in your browser settings. Enable them from your browser/site settings first.');
+    if (pushBusy) return;
+    if (pushSupported() && Notification.permission === 'denied') {
+      await showAlert('Notifications blocked', 'Notifications are blocked for this app. Allow them in your phone or browser settings first.');
       return;
     }
-    if (perm === 'default') {
-      requestNotifPermission((perm2) => {
-        state.notificationsEnabled = (perm2 === 'granted');
-        save();
-        syncSettingsUI();
-      });
-      return;
+    pushBusy = true;
+    try {
+      if (pushOn) await unsubscribePush();
+      else await subscribePush();
+    } catch (e) {
+      const msg = e && e.message;
+      if (msg === 'unsupported') await showAlert('Not supported', "This browser can't receive notifications.");
+      else if (msg !== 'denied') await showAlert("Couldn't change notifications", 'Check your internet connection and try again.');
+    } finally {
+      pushBusy = false;
+      await refreshPushState();
     }
-    // already granted — just toggle app-level preference
-    state.notificationsEnabled = !notificationsActive();
-    save();
+  });
+
+  // Start-a-fast reminder: the time is kept in the account, the server sends it.
+  (function fillTimeSelects() {
+    const pad = (n) => String(n).padStart(2, '0');
+    for (let h = 0; h < 24; h++) el.startReminderHour.add(new Option(pad(h), pad(h)));
+    ['00', '15', '30', '45'].forEach(m => el.startReminderMinute.add(new Option(m, m)));
+  })();
+
+  async function setStartReminder(value) {
+    const ok = await saveChange(async () => {
+      must(await updateProfile({ start_reminder: value, last_start_reminder: null }));
+      state.startReminder = value;
+    });
     syncSettingsUI();
-  });
-
-  function notify(title, body) {
-    if (!notificationsActive()) return;
-    const opts = {
-      body,
-      icon: 'icons/icon-192.png',
-      badge: 'icons/icon-192.png',
-      tag: 'fasttrack-' + title.replace(/\s+/g, '-').toLowerCase(),
-    };
-    if ('serviceWorker' in navigator) {
-      const swReady = navigator.serviceWorker.ready;
-      const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 1500));
-      Promise.race([swReady, timeout]).then((reg) => {
-        if (reg && reg.showNotification) {
-          reg.showNotification(title, opts);
-        } else {
-          try { new Notification(title, opts); } catch (e) {}
-        }
-      }).catch(() => {
-        try { new Notification(title, opts); } catch (e) {}
-      });
-    } else {
-      try { new Notification(title, opts); } catch (e) {}
-    }
+    return ok;
   }
 
-  // Catch up on the goal-reached notification if it should have fired while the app was
-  // closed/backgrounded.
-  function checkNotificationCatchUp() {
-    if (!state.current) return;
-    const start = new Date(state.current.startISO).getTime();
-    const targetMs = state.current.targetHours * 3600 * 1000;
-    const elapsedMs = Date.now() - start;
-
-    if (!state.current.goalNotified && elapsedMs >= targetMs) {
-      state.current.goalNotified = true;
-      save();
-      notify('Fasting goal reached', `You hit your ${state.current.targetHours}h target. Keep going or tap End Fast.`);
-    }
-  }
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      checkNotificationCatchUp();
+  el.startReminderToggle.addEventListener('click', async () => {
+    if (state.startReminder) { setStartReminder(null); return; }
+    const ok = await setStartReminder(DEFAULT_REMINDER);
+    if (ok && !pushOn && pushSupported() && Notification.permission !== 'denied') {
+      el.settingsNotifToggle.click();   // a reminder needs notifications
     }
   });
+
+  const onTimeChange = () => {
+    if (!state.startReminder) return;
+    setStartReminder(`${el.startReminderHour.value}:${el.startReminderMinute.value}`);
+  };
+  el.startReminderHour.addEventListener('change', onTimeChange);
+  el.startReminderMinute.addEventListener('change', onTimeChange);
 
   // ---------- Edit start time (active fast) ----------
   el.editStartBtn.addEventListener('click', () => {
     if (!state.current) return;
-    const d = new Date(state.current.startISO);
-    el.editStartInput.value = toLocalInputValue(d);
+    el.editStartInput.value = toLocalInputValue(new Date(state.current.startISO));
     el.editModal.classList.remove('hidden');
   });
 
@@ -434,7 +572,7 @@
       const now = Date.now();
       if (isNaN(newDate.getTime()) || newDate.getTime() >= now) {
         el.editModal.classList.add('hidden');
-        await showAlert('Invalid time', "Start time must be in the past.");
+        await showAlert('Invalid time', 'Start time must be in the past.');
         return;
       }
       if ((now - newDate.getTime()) / 3600000 > 720) {
@@ -442,10 +580,16 @@
         await showAlert('Invalid time', "That's more than 30 days ago — double check the date.");
         return;
       }
-      state.current.startISO = newDate.toISOString();
-      state.current.goalNotified = false;
-      save();
-      render();
+      el.editModal.classList.add('hidden');
+      const startISO = newDate.toISOString();
+      const goalPassed = newDate.getTime() + state.current.targetHours * 3600000 <= now;
+      const ok = await saveChange(async () => {
+        // If the new start means the goal is already behind you, no "goal reached" alert is sent.
+        must(await updateProfile({ current_start: startISO, goal_notified_for: goalPassed ? startISO : null }));
+        state.current.startISO = startISO;
+      });
+      if (ok) render();
+      return;
     }
     el.editModal.classList.add('hidden');
   });
@@ -456,16 +600,16 @@
   }
 
   // ---------- Add / edit a past fast ----------
-  function openFastEditModal(idx) {
-    editingFastIndex = idx;
-    let entry;
-    if (idx === null) {
+  function openFastEditModal(id) {
+    editingFastId = id;
+    let entry = id === null ? null : state.history.find(e => e.id === id);
+    if (!entry) {
+      editingFastId = null;
       const now = new Date();
       const defaultStart = new Date(now.getTime() - (state.lastTargetHours || 16) * 3600000);
       entry = { startISO: defaultStart.toISOString(), endISO: now.toISOString(), targetHours: state.lastTargetHours || 16 };
       el.fastEditTitle.textContent = 'Add fast';
     } else {
-      entry = state.history[idx];
       el.fastEditTitle.textContent = 'Edit fast';
     }
     el.fastEditStartInput.value = toLocalInputValue(new Date(entry.startISO));
@@ -499,20 +643,29 @@
       await showAlert('Invalid times', "End time can't be in the future.");
       return;
     }
-    const durationCheckH = (endDate - startDate) / 3600000;
-    if (durationCheckH > 720) {
-      await showAlert('Invalid times', "That fast is longer than 30 days — double check the start and end dates.");
+    if ((endDate - startDate) / 3600000 > 720) {
+      await showAlert('Invalid times', 'That fast is longer than 30 days — double check the start and end dates.');
+      return;
+    }
+    if (targetVal > 720) {
+      await showAlert('Invalid goal', 'The goal must be 720 hours or less.');
       return;
     }
 
-    const newEntry = { startISO: startDate.toISOString(), endISO: endDate.toISOString(), targetHours: targetVal };
-    if (editingFastIndex === null) {
-      state.history.push(newEntry);
-    } else {
-      state.history[editingFastIndex] = newEntry;
-    }
-    state.history.sort((a, b) => new Date(b.startISO) - new Date(a.startISO));
-    save();
+    const row = { start_at: startDate.toISOString(), end_at: endDate.toISOString(), target_hours: targetVal };
+    const id = editingFastId;
+    const ok = await saveChange(async () => {
+      if (id === null) {
+        const saved = must(await sb.from('fasts').insert(Object.assign({ user_id: state.userId }, row)).select(FAST_COLS).single());
+        state.history.push(rowToEntry(saved));
+      } else {
+        const saved = must(await sb.from('fasts').update(row).eq('id', id).select(FAST_COLS).single());
+        const i = state.history.findIndex(e => e.id === id);
+        if (i >= 0) state.history[i] = rowToEntry(saved);
+      }
+      sortHistory();
+    });
+    if (!ok) return;
     el.fastEditModal.classList.add('hidden');
     renderHistory();
     renderChart();
@@ -528,6 +681,12 @@
     return `${pad(h)}:${pad(m)}:${pad(s)}`;
   }
 
+  function renderAll() {
+    render();
+    if (el.historyView.classList.contains('active')) { renderHistory(); renderChart(); }
+    if (el.settingsView.classList.contains('active')) syncSettingsUI();
+  }
+
   function render() {
     if (state.current) {
       el.mainActionBtn.textContent = 'End Fast';
@@ -536,6 +695,7 @@
       el.statusLabel.textContent = 'FASTING';
       document.querySelectorAll('#targetPicker .preset').forEach(b => b.style.opacity = '0.4');
       el.customTargetInput.disabled = true;
+      setPresetUI(state.current.targetHours);
 
       const finishDate = new Date(new Date(state.current.startISO).getTime() + state.current.targetHours * 3600000);
       const finishStr = finishDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
@@ -576,8 +736,7 @@
   function tick() {
     if (!state.current) return;
     const start = new Date(state.current.startISO).getTime();
-    const now = Date.now();
-    const elapsedMs = now - start;
+    const elapsedMs = Date.now() - start;
     const targetMs = state.current.targetHours * 3600 * 1000;
     el.elapsedTime.textContent = formatElapsed(elapsedMs);
 
@@ -586,18 +745,11 @@
 
     if (elapsedMs >= targetMs) {
       el.ringProgress.style.stroke = 'var(--accent2)';
-      const overMs = elapsedMs - targetMs;
-      el.subLabel.textContent = `Goal reached · +${formatElapsed(overMs)} over`;
+      el.subLabel.textContent = `Goal reached · +${formatElapsed(elapsedMs - targetMs)} over`;
       el.subLabel.style.color = '';
-      if (!state.current.goalNotified) {
-        state.current.goalNotified = true;
-        save();
-        notify('Fasting goal reached', `You hit your ${state.current.targetHours}h target. Keep going or tap End Fast.`);
-      }
     } else {
       el.ringProgress.style.stroke = 'var(--accent)';
-      const remainMs = targetMs - elapsedMs;
-      el.subLabel.textContent = formatElapsed(remainMs);
+      el.subLabel.textContent = formatElapsed(targetMs - elapsedMs);
       el.subLabel.style.color = 'var(--accent)';
     }
   }
@@ -609,18 +761,18 @@
     el.historyEmpty.classList.toggle('hidden', items.length > 0);
 
     const visible = items.slice(0, historyRenderLimit);
-    visible.forEach((entry, idx) => {
+    visible.forEach((entry) => {
       const start = new Date(entry.startISO);
       const end = new Date(entry.endISO);
-      const durationMs = end - start;
-      const durationH = durationMs / 3600000;
+      const durationH = (end - start) / 3600000;
       const hit = durationH >= entry.targetHours;
 
       const li = document.createElement('li');
       li.className = 'history-item';
 
       const dateStr = formatShortDate(start);
-      const timeStr = `${start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} – ${end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
+      const timeOpts = { hour: '2-digit', minute: '2-digit', hour12: false };
+      const timeStr = `${start.toLocaleTimeString(undefined, timeOpts)} – ${end.toLocaleTimeString(undefined, timeOpts)}`;
 
       li.innerHTML = `
         <div class="hi-left">
@@ -629,38 +781,15 @@
         </div>
         <div class="hi-right">
           <span class="hi-duration ${hit ? 'hit' : 'miss'}">${formatHoursShort(durationH)}</span>
-          <button class="hi-edit" data-idx="${idx}" aria-label="Edit">
+          <button class="hi-edit" data-id="${entry.id}" aria-label="Edit">
             <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
           </button>
-          <button class="hi-del" data-idx="${idx}" aria-label="Delete">
+          <button class="hi-del" data-id="${entry.id}" aria-label="Delete">
             <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
           </button>
         </div>
       `;
       el.historyList.appendChild(li);
-    });
-
-    document.querySelectorAll('.hi-edit').forEach(btn => {
-      btn.addEventListener('click', () => {
-        openFastEditModal(Number(btn.dataset.idx));
-      });
-    });
-
-    document.querySelectorAll('.hi-del').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const ok = await showDialog({
-          title: 'Delete this fast?',
-          message: "This removes it from your history. This can't be undone.",
-          okText: 'Delete',
-          danger: true,
-        });
-        if (!ok) return;
-        const idx = Number(btn.dataset.idx);
-        state.history.splice(idx, 1);
-        save();
-        renderHistory();
-        renderChart();
-      });
     });
 
     renderStats();
@@ -669,6 +798,26 @@
     el.historyLoadMoreBtn.classList.toggle('hidden', remaining <= 0);
     el.historyLoadMoreBtn.textContent = `Load more (${remaining} remaining)`;
   }
+
+  el.historyList.addEventListener('click', async (e) => {
+    const editBtn = e.target.closest('.hi-edit');
+    if (editBtn) { openFastEditModal(Number(editBtn.dataset.id)); return; }
+    const delBtn = e.target.closest('.hi-del');
+    if (!delBtn) return;
+    const id = Number(delBtn.dataset.id);
+    const ok = await showDialog({
+      title: 'Delete this fast?',
+      message: "This removes it from your history. This can't be undone.",
+      okText: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    const saved = await saveChange(async () => {
+      must(await sb.from('fasts').delete().eq('id', id));
+      state.history = state.history.filter(x => x.id !== id);
+    }, "Couldn't delete");
+    if (saved) { renderHistory(); renderChart(); }
+  });
 
   el.historyLoadMoreBtn.addEventListener('click', () => {
     historyRenderLimit += HISTORY_PAGE_SIZE;
@@ -705,7 +854,6 @@
 
     let totalH = 0;
     let longestH = 0;
-
     items.forEach(e => {
       const durationH = (new Date(e.endISO) - new Date(e.startISO)) / 3600000;
       totalH += durationH;
@@ -733,10 +881,7 @@
     const map = new Map(buckets.map(b => [b.key, b]));
 
     // Split each fast's hours across every calendar day it actually spans, proportional to how
-    // much of it fell on each day — rather than dumping the whole duration onto the end date.
-    // This matters for every overnight fast, not just ones over 24h: a fast that runs 8pm-noon
-    // should show hours on both the day it started and the day it ended, not all on one or the
-    // other.
+    // much of it fell on each day — an overnight fast shows hours on both days.
     state.history.forEach(entry => {
       const start = new Date(entry.startISO);
       const end = new Date(entry.endISO);
@@ -746,9 +891,8 @@
         const dayStart = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
         const dayEnd = new Date(dayStart.getFullYear(), dayStart.getMonth(), dayStart.getDate() + 1);
         const segmentEnd = end < dayEnd ? end : dayEnd;
-        const hoursThisDay = (segmentEnd - cursor) / 3600000;
         const key = dateKey(dayStart);
-        if (map.has(key)) map.get(key).value += hoursThisDay;
+        if (map.has(key)) map.get(key).value += (segmentEnd - cursor) / 3600000;
         cursor = segmentEnd;
         guard++;
       }
@@ -769,18 +913,15 @@
   });
 
   function renderChart() {
-    if (!el.chartBars) return;
     const buckets = buildMonthBuckets(currentChartMonth);
     const goalHours = Math.min(24, state.lastTargetHours || 16);
 
     el.chartMonthLabel.textContent = currentChartMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-    const now = new Date();
-    el.chartNextMonthBtn.disabled = isSameMonth(currentChartMonth, now);
+    el.chartNextMonthBtn.disabled = isSameMonth(currentChartMonth, new Date());
 
     el.chartBars.innerHTML = '';
     el.chartLabels.innerHTML = '';
 
-    // goal reference line
     const goalLine = document.createElement('div');
     goalLine.className = 'chart-goal-line';
     goalLine.style.top = `${(1 - goalHours / 24) * 100}%`;
@@ -799,19 +940,57 @@
 
       const label = document.createElement('span');
       const fromEnd = buckets.length - 1 - idx;
-      const dayNum = b.date.getDate();
-      label.textContent = (idx === 0 || idx === buckets.length - 1 || fromEnd % showEvery === 0) ? String(dayNum) : '';
+      label.textContent = (idx === 0 || idx === buckets.length - 1 || fromEnd % showEvery === 0) ? String(b.date.getDate()) : '';
       el.chartLabels.appendChild(label);
     });
   }
 
-  // ---------- Export / Import ----------
+  // ---------- Import ----------
+  // Adds fasts to the account; ones already there are skipped. Works with My Fast and Fast Track files.
+  function validEntries(list) {
+    const rows = [];
+    let skipped = 0;
+    (list || []).forEach((entry) => {
+      if (!entry || !entry.startISO || !entry.endISO || !entry.targetHours) { skipped++; return; }
+      const start = new Date(entry.startISO);
+      const end = new Date(entry.endISO);
+      const target = Number(entry.targetHours);
+      const durH = (end - start) / 3600000;
+      if (isNaN(start.getTime()) || isNaN(end.getTime()) || !(durH > 0) || durH > 720 || !(target > 0) || target > 720) { skipped++; return; }
+      rows.push({ user_id: state.userId, start_at: start.toISOString(), end_at: end.toISOString(), target_hours: Math.round(target * 10) / 10 });
+    });
+    return { rows, skipped };
+  }
+
+  async function uploadEntries(rows) {
+    let added = 0;
+    for (let i = 0; i < rows.length; i += 500) {
+      const saved = must(await sb.from('fasts')
+        .upsert(rows.slice(i, i + 500), { onConflict: 'user_id,start_at,end_at', ignoreDuplicates: true })
+        .select('id'));
+      added += saved.length;
+    }
+    return added;
+  }
+
+  function validCurrent(c) {
+    if (!c || !c.startISO || !c.targetHours) return null;
+    const start = new Date(c.startISO);
+    const target = Number(c.targetHours);
+    if (isNaN(start.getTime()) || start.getTime() > Date.now() || !(target > 0) || target > 720) return null;
+    return { startISO: start.toISOString(), targetHours: target };
+  }
+
+  async function setCurrentFrom(c) {
+    const goalPassed = new Date(c.startISO).getTime() + c.targetHours * 3600000 <= Date.now();
+    must(await updateProfile({ current_start: c.startISO, current_target: c.targetHours, goal_notified_for: goalPassed ? c.startISO : null }));
+  }
+
   function triggerImport() {
     el.importFile.value = '';
     el.importFile.click();
   }
 
-  el.settingsExportBtn.addEventListener('click', performManualBackup);
   el.settingsImportBtn.addEventListener('click', triggerImport);
 
   el.importFile.addEventListener('change', () => {
@@ -819,112 +998,92 @@
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result);
-        importData(data);
-      } catch (e) {
-        showAlert('Import failed', "Could not read that file — make sure it's a Fast Track export.");
-      }
+      let data = null;
+      try { data = JSON.parse(reader.result); } catch (e) {}
+      importData(data);
     };
     reader.readAsText(file);
   });
 
   async function importData(data) {
     if (!data || !Array.isArray(data.history)) {
-      await showAlert('Import failed', "That file doesn't look like a valid Fast Track export.");
+      await showAlert('Import failed', "That file doesn't look like a My Fast export.");
       return;
     }
-
-    const existingKeys = new Set(state.history.map(e => `${e.startISO}|${e.endISO}`));
-    let added = 0;
-    let skipped = 0;
-    data.history.forEach((entry) => {
-      if (!entry || !entry.startISO || !entry.endISO || !entry.targetHours) { skipped++; return; }
-      const start = new Date(entry.startISO);
-      const end = new Date(entry.endISO);
-      const durH = (end - start) / 3600000;
-      if (!(durH > 0) || durH > 720 || isNaN(start.getTime()) || isNaN(end.getTime())) { skipped++; return; }
-      const key = `${entry.startISO}|${entry.endISO}`;
-      if (!existingKeys.has(key)) {
-        existingKeys.add(key);
-        state.history.push({
-          startISO: entry.startISO,
-          endISO: entry.endISO,
-          targetHours: Number(entry.targetHours),
-        });
-        added++;
-      }
-    });
-    state.history.sort((a, b) => new Date(b.startISO) - new Date(a.startISO));
-
-    let importedCurrent = false;
-    if (!state.current && data.current && data.current.startISO && data.current.targetHours) {
-      const proceed = await showDialog({
+    const { rows, skipped } = validEntries(data.history);
+    const cur = !state.current ? validCurrent(data.current) : null;
+    let resume = false;
+    if (cur) {
+      resume = await showDialog({
         title: 'Resume active fast?',
         message: 'This file also has an in-progress fast. Import it as your active fast?',
         okText: 'Resume',
       });
-      if (proceed) {
-        state.current = {
-          startISO: data.current.startISO,
-          targetHours: Number(data.current.targetHours),
-          goalNotified: !!data.current.goalNotified,
-        };
-        importedCurrent = true;
-      }
     }
-
-    save();
-    render();
-    renderHistory();
-    renderChart();
+    let added = 0;
+    const ok = await saveChange(async () => {
+      added = await uploadEntries(rows);
+      if (resume) await setCurrentFrom(cur);
+    }, 'Import failed');
+    if (!ok) return;
+    try { await loadFromServer(); } catch (e) {}
     const skippedMsg = skipped > 0 ? ` (${skipped} skipped — missing or implausible data)` : '';
-    await showAlert('Import complete', `Imported ${added} fast${added === 1 ? '' : 's'}${importedCurrent ? ' and resumed your active fast' : ''}.${skippedMsg}`);
+    await showAlert('Import complete', `Imported ${added} fast${added === 1 ? '' : 's'}${resume ? ' and resumed your active fast' : ''}.${skippedMsg}`);
+  }
+
+  // One time, after the first login on a phone that used the old phone-only version: its fasts
+  // are moved into the account. The old copy is kept under another name, just in case.
+  async function moveOldPhoneData() {
+    let raw = null, old = null;
+    try { raw = localStorage.getItem(OLD_KEY); old = raw && JSON.parse(raw); } catch (e) {}
+    if (!old) return;
+    const { rows } = validEntries(old.history);
+    const cur = !state.current ? validCurrent(old.current) : null;
+    try {
+      const added = await uploadEntries(rows);
+      if (cur) await setCurrentFrom(cur);
+      try { localStorage.setItem(OLD_KEY + '_moved', raw); localStorage.removeItem(OLD_KEY); } catch (e) {}
+      await loadFromServer();
+      if (added || cur) {
+        await showAlert('Your fasts are in your account', `Moved ${added} fast${added === 1 ? '' : 's'}${cur ? ' and your active fast' : ''} from this phone into your account.`);
+      }
+    } catch (e) {
+      // Not moved (e.g. no internet): the old data stays on the phone and this runs again next time.
+    }
   }
 
   el.resetDataBtn.addEventListener('click', async () => {
     const ok = await showDialog({
       title: 'Clear all data?',
-      message: "This clears all logged fasts and any active fast. This can't be undone.",
+      message: "This deletes all logged fasts and any active fast from your account. This can't be undone.",
       okText: 'Clear',
       danger: true,
     });
     if (!ok) return;
-    state.history = [];
-    state.current = null;
-    save();
-    render();
-    renderHistory();
-    renderChart();
+    const saved = await saveChange(async () => {
+      must(await sb.from('fasts').delete().eq('user_id', state.userId));
+      must(await updateProfile({ current_start: null, current_target: null, goal_notified_for: null }));
+      state.history = [];
+      state.current = null;
+    }, "Couldn't clear");
+    if (saved) renderAll();
   });
 
-  // ---------- Backup to Downloads ----------
-  // Design notes:
-  // - A downloaded file lives in the OS-level Downloads folder, which "Clear browsing data" in
-  //   Chrome does NOT touch — unlike localStorage, which is exactly what gets wiped by that action.
-  //   This is a genuinely separate safety net from local storage, not just a convenience.
-  // - Automatic download happens unconditionally every time a fast ends (see endFast()) — no
-  //   setting to turn it off, no throttling. Manual "Export" (below) triggers the exact same
-  //   function, so both produce identically-named files: fast-track-backup-<date>.json.
-  // - There's no way for a web app to remember a specific folder on Android and silently overwrite
-  //   a file in it (that part of the File System Access API isn't supported on Android Chrome) —
-  //   so every backup is a new file in the default Downloads folder, named with the date.
-
+  // ---------- Export / Share ----------
   function buildBackupFile() {
     const payload = {
-      app: 'fast-track',
+      app: 'my-fast',
       version: 1,
       exportedAt: new Date().toISOString(),
-      history: state.history,
+      history: state.history.map(({ startISO, endISO, targetHours }) => ({ startISO, endISO, targetHours })),
       current: state.current,
     };
-    const stamp = new Date().toISOString().slice(0, 10);
-    const filename = `fast-track-backup-${stamp}.json`;
+    const filename = `my-fast-backup-${new Date().toISOString().slice(0, 10)}.json`;
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     return { blob, filename };
   }
 
-  function triggerBackupDownload() {
+  el.settingsExportBtn.addEventListener('click', () => {
     const { blob, filename } = buildBackupFile();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -934,19 +1093,13 @@
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }
+  });
 
-  // Feature-detected: file sharing via navigator.share isn't available on every
-  // browser/OS combo, so the Share button only appears when it will actually work.
+  // Chromium only shares certain file types, so the copy is shared as .txt (still valid JSON).
   const shareFilesSupported = (() => {
     if (!navigator.share || !navigator.canShare) return false;
     try {
-      // Probe with the same type/extension we'll actually share (see below) so detection
-      // matches reality — Chromium restricts Web Share file types to a curated allowlist
-      // (audio/image/pdf/video/text), and testing with a mismatched type risks canShare()
-      // saying yes while the real share() call later rejects it.
-      const probe = new File(['{}'], 'probe.txt', { type: 'text/plain' });
-      return navigator.canShare({ files: [probe] });
+      return navigator.canShare({ files: [new File(['{}'], 'probe.txt', { type: 'text/plain' })] });
     } catch (e) {
       return false;
     }
@@ -956,15 +1109,9 @@
     el.settingsShareBtn.classList.remove('hidden');
     el.settingsShareBtn.addEventListener('click', async () => {
       const { blob, filename } = buildBackupFile();
-      // Share as .txt/text/plain rather than .json/application/json: Chromium's Web Share
-      // API only permits a curated allowlist of file types, and JSON isn't reliably on it —
-      // the content is unchanged, still valid JSON, just wrapped in a permitted file type.
-      // Import doesn't care about file extension, only content, so this changes nothing
-      // about compatibility with the rest of the app.
-      const shareFilename = filename.replace(/\.json$/, '.txt');
-      const file = new File([blob], shareFilename, { type: 'text/plain' });
+      const file = new File([blob], filename.replace(/\.json$/, '.txt'), { type: 'text/plain' });
       try {
-        await navigator.share({ files: [file], title: 'Fast Track backup' });
+        await navigator.share({ files: [file], title: 'My Fast backup' });
       } catch (e) {
         if (e && e.name !== 'AbortError') {
           await showAlert('Share failed', "Couldn't open the share sheet — try Export instead.");
@@ -973,21 +1120,190 @@
     });
   }
 
-  function performManualBackup() {
-    triggerBackupDownload();
+  // ---------- People (administrator only) ----------
+  const isAdmin = () => state.email === ADMIN_EMAIL;
+
+  async function loadInvites() {
+    if (!isAdmin()) return;
+    const r = await api('invites').catch(() => ({}));
+    if (!r.emails) return;
+    el.inviteList.innerHTML = '';
+    r.emails.forEach(email => {
+      const li = document.createElement('li');
+      const name = document.createElement('span');
+      name.textContent = email;
+      const actions = document.createElement('div');
+      const reset = document.createElement('button');
+      reset.className = 'text-btn accent';
+      reset.textContent = 'Reset password';
+      reset.dataset.reset = email;
+      const remove = document.createElement('button');
+      remove.className = 'text-btn';
+      remove.textContent = 'Remove';
+      remove.dataset.remove = email;
+      actions.append(reset, remove);
+      li.append(name, actions);
+      el.inviteList.appendChild(li);
+    });
+  }
+
+  el.inviteBtn.addEventListener('click', async () => {
+    const email = el.inviteEmailInput.value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { await showAlert('Invite', 'Enter a valid email address.'); return; }
+    const r = await api('invite', { email }).catch(() => ({ error: 'offline' }));
+    if (r.error) { await showAlert("Couldn't invite", 'Check your internet connection and try again.'); return; }
+    el.inviteEmailInput.value = '';
+    await loadInvites();
+    await showAlert('Invited', `${email} can now open My Fast, tap "Create account" and choose a password.`);
+  });
+
+  el.inviteList.addEventListener('click', async (e) => {
+    const resetEmail = e.target.dataset && e.target.dataset.reset;
+    const removeEmail = e.target.dataset && e.target.dataset.remove;
+    if (resetEmail) {
+      if (!(await showDialog({ title: 'Reset password?', message: `Give ${resetEmail} a temporary password?`, okText: 'Reset' }))) return;
+      const r = await api('adminReset', { email: resetEmail }).catch(() => ({ error: 'offline' }));
+      if (r.password) await showAlert('Temporary password', `${r.password}\n\nPass it on to ${resetEmail}. They can change it in Settings.`);
+      else if (r.error === 'not_registered') await showAlert('No account yet', `${resetEmail} hasn't created an account yet.`);
+      else await showAlert("Couldn't reset", 'Check your internet connection and try again.');
+    } else if (removeEmail) {
+      if (!(await showDialog({ title: 'Remove invite?', message: `${removeEmail} won't be able to create an account. An existing account keeps working.`, okText: 'Remove', danger: true }))) return;
+      const r = await api('uninvite', { email: removeEmail }).catch(() => ({ error: 'offline' }));
+      if (r.error) await showAlert("Couldn't remove", 'Check your internet connection and try again.');
+      await loadInvites();
+    }
+  });
+
+  // ---------- Password ----------
+  el.changePasswordBtn.addEventListener('click', () => {
+    el.newPasswordInput.value = '';
+    el.passwordModal.classList.remove('hidden');
+  });
+  el.passwordCancelBtn.addEventListener('click', () => el.passwordModal.classList.add('hidden'));
+  el.passwordSaveBtn.addEventListener('click', async () => {
+    const password = el.newPasswordInput.value;
+    if (password.length < 8 || password.length > 72) { await showAlert('Password', 'Use at least 8 characters.'); return; }
+    const { error } = await sb.auth.updateUser({ password }).catch((e) => ({ error: e }));
+    if (error) { await showAlert("Couldn't change password", 'Check your internet connection and try again.'); return; }
+    el.passwordModal.classList.add('hidden');
+    await showAlert('Password changed', 'Use the new password next time you log in.');
+  });
+
+  // ---------- Login ----------
+  function showLogin(msg) {
+    el.loginScreen.classList.remove('hidden');
+    sayLogin(msg || '');
+  }
+  function sayLogin(text, ok) {
+    el.loginMsg.textContent = text;
+    el.loginMsg.className = ok ? 'login-msg ok' : 'login-msg';
+  }
+
+  const REGISTER_ERRORS = {
+    invalid_email: 'Enter a valid email address.',
+    weak_password: 'Choose a password with at least 8 characters.',
+    not_allowed: "This email hasn't been invited. Ask Toma to invite you.",
+    already_registered: 'You already have an account. Log in with your password.',
+  };
+
+  let loginBusy = false;
+  async function doLogin(register) {
+    if (loginBusy) return;
+    if (!sb) { sayLogin("The app didn't load properly. Check your connection and reopen it."); return; }
+    const email = el.loginEmail.value.trim().toLowerCase();
+    const password = el.loginPassword.value;
+    if (!email || !password) { sayLogin('Enter your email and password.'); return; }
+    loginBusy = true;
+    el.loginForm.querySelectorAll('button').forEach(b => b.disabled = true);
+    sayLogin(register ? 'Creating your account…' : 'Logging in…', true);
+    try {
+      if (register) {
+        const r = await api('register', { email, password });
+        if (r.error) { sayLogin(REGISTER_ERRORS[r.error] || 'Something went wrong. Please try again.'); return; }
+      }
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if (error || !data.session) {
+        sayLogin(error && /invalid/i.test(error.message) ? 'Wrong email or password.' : "Couldn't log in. Please try again.");
+        return;
+      }
+      sayLogin('Loading your fasts…', true);
+      if (!(await startSession(data.session.user))) { sayLogin("Couldn't load your fasts. Please try again."); return; }
+      el.loginScreen.classList.add('hidden');
+      el.loginPassword.value = '';
+    } catch (e) {
+      sayLogin("Can't reach the server. Check your internet connection.");
+    } finally {
+      loginBusy = false;
+      el.loginForm.querySelectorAll('button').forEach(b => b.disabled = false);
+    }
+  }
+
+  el.loginForm.addEventListener('submit', (e) => { e.preventDefault(); doLogin(false); });
+  el.registerBtn.addEventListener('click', () => doLogin(true));
+  el.forgotBtn.addEventListener('click', () =>
+    showAlert('Forgot password', `The app doesn't send emails. Ask Toma (${ADMIN_EMAIL}) for a temporary password, then change it in Settings.`));
+
+  // Load this person's data. A different person on this phone starts from a clean slate.
+  async function startSession(user) {
+    if (state.userId !== user.id) {
+      state = emptyState();
+      selectedTargetHours = 16;
+    }
+    state.userId = user.id;
+    state.email = (user.email || '').toLowerCase();
+    try {
+      await loadFromServer();
+    } catch (e) {
+      return false;
+    }
+    await moveOldPhoneData();
+    refreshPushState();
+    return true;
+  }
+
+  let loggingOut = false;
+  el.logoutBtn.addEventListener('click', async () => {
+    const ok = await showDialog({ title: 'Log out?', message: 'Your fasts stay in your account. Notifications stop on this phone.', okText: 'Log out', danger: true });
+    if (!ok) return;
+    loggingOut = true;
+    try { await withTimeout(unsubscribePush(), 6000); } catch (e) {}
+    try { await sb.auth.signOut({ scope: 'local' }); } catch (e) {}
+    try { localStorage.removeItem(AUTH_KEY); localStorage.removeItem(CACHE_KEY); } catch (e) {}
+    state = emptyState();
+    selectedTargetHours = 16;
+    pushOn = false;
+    loggingOut = false;
+    showView('timerView');
+    renderAll();
+    showLogin();
+  });
+
+  async function startAccount() {
+    if (!sb) { if (!state.userId) showLogin("The app didn't load properly. Check your connection and reopen it."); return; }
+    sb.auth.onAuthStateChange((event) => {
+      setTimeout(() => {   // never call the library from inside its own callback
+        if (event === 'SIGNED_OUT' && state.userId && !loggingOut) showLogin('Please log in again.');
+      }, 0);
+    });
+    let session = null;
+    try { session = (await sb.auth.getSession()).data.session; } catch (e) {}
+    if (session) {
+      if (!(await startSession(session.user)) && state.userId !== session.user.id) showLogin("Couldn't load your fasts. Please log in again.");
+    } else if (!state.userId) {
+      showLogin();
+    } else {
+      showLogin('Please log in again.');
+    }
   }
 
   // ---------- Init ----------
-  setPresetUI(selectedTargetHours);
   applyTheme();
-  syncSettingsUI();
-  checkNotificationCatchUp();
+  setPresetUI(selectedTargetHours);
   render();
+  startAccount();
 
   // ---------- Service worker ----------
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('service-worker.js').catch(() => {});
-    });
+    navigator.serviceWorker.register('service-worker.js').catch(() => {});
   }
 })();

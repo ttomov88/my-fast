@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-<title>Fast Track</title>
+<title>My Fast</title>
 <meta name="theme-color" content="#f4f5f7">
 <meta name="description" content="Simple intermittent fasting timer">
 
@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Fast Track">
+<meta name="apple-mobile-web-app-title" content="My Fast">
 
 <link rel="stylesheet" href="style.css">
 </head>
@@ -22,7 +22,7 @@
 <div class="app">
 
   <header class="topbar">
-    <h1 id="appTitle">Fast Track</h1>
+    <h1 id="appTitle">My Fast</h1>
     <div class="topbar-actions">
       <button id="historyBtn" class="icon-btn" aria-label="History">
         <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6a7 7 0 1 1 2.05 4.95l-1.42 1.42A9 9 0 1 0 13 3zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8z"/></svg>
@@ -145,11 +145,28 @@
         <div class="settings-row">
           <div>
             <div class="settings-label">Notifications</div>
-            <div class="settings-sublabel" id="notifStatusText">Not enabled</div>
+            <div class="settings-sublabel" id="notifStatusText">Off</div>
           </div>
           <button id="settingsNotifToggle" class="toggle-switch" role="switch" aria-checked="false">
             <span class="toggle-knob"></span>
           </button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">Remind me to start</div>
+            <div class="settings-sublabel" id="startReminderText">Off</div>
+          </div>
+          <button id="startReminderToggle" class="toggle-switch" role="switch" aria-checked="false">
+            <span class="toggle-knob"></span>
+          </button>
+        </div>
+        <div id="startReminderTimeRow" class="settings-row hidden">
+          <div class="settings-sublabel">Time</div>
+          <div class="time-select">
+            <select id="startReminderHour" aria-label="Hour"></select>
+            <span>:</span>
+            <select id="startReminderMinute" aria-label="Minute"></select>
+          </div>
         </div>
       </div>
 
@@ -169,13 +186,63 @@
             Import
           </button>
         </div>
+        <div class="settings-sublabel">Your fasts are saved in your account and backed up automatically every day.</div>
         <button id="resetDataBtn" class="danger-btn">Clear all data</button>
+      </div>
+
+      <div id="peopleSection" class="settings-section hidden">
+        <div class="settings-label">People</div>
+        <div class="settings-sublabel">Invited people can create their own account. Their fasts are private.</div>
+        <ul id="inviteList" class="invite-list"></ul>
+        <div class="invite-add">
+          <input type="email" id="inviteEmailInput" placeholder="friend@example.com" autocomplete="off" autocapitalize="none" spellcheck="false">
+          <button id="inviteBtn" class="chip-btn">Invite</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-label">Account</div>
+        <div class="settings-sublabel" id="accountEmail"></div>
+        <div class="data-actions account-actions">
+          <button id="changePasswordBtn" class="chip-btn">Change password</button>
+          <button id="logoutBtn" class="chip-btn">Log out</button>
+        </div>
       </div>
     </section>
   </main>
 </div>
 
 <input type="file" id="importFile" accept="application/json,.json" class="hidden">
+
+<!-- LOGIN -->
+<div id="loginScreen" class="login-screen hidden">
+  <form id="loginForm" class="login-card" novalidate>
+    <img src="icons/icon-192.png" alt="" class="login-icon">
+    <h1>My Fast</h1>
+    <p class="login-sub">Log in to see your fasts.</p>
+    <label class="field-label" for="loginEmail">Email</label>
+    <input id="loginEmail" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false">
+    <label class="field-label" for="loginPassword">Password</label>
+    <input id="loginPassword" type="password" autocomplete="current-password" minlength="8">
+    <p id="loginMsg" class="login-msg" role="alert"></p>
+    <button type="submit" id="loginBtn" class="main-action-btn">Log in</button>
+    <button type="button" id="registerBtn" class="text-btn accent">Create account (invited only)</button>
+    <button type="button" id="forgotBtn" class="text-btn">Forgot password?</button>
+  </form>
+</div>
+
+<!-- CHANGE PASSWORD MODAL -->
+<div id="passwordModal" class="modal hidden">
+  <div class="modal-card">
+    <h3>Change password</h3>
+    <label class="field-label" for="newPasswordInput">New password (at least 8 characters)</label>
+    <input type="password" id="newPasswordInput" autocomplete="new-password" minlength="8">
+    <div class="modal-actions">
+      <button id="passwordCancelBtn" class="text-btn">Cancel</button>
+      <button id="passwordSaveBtn" class="main-action-btn small">Save</button>
+    </div>
+  </div>
+</div>
 
 <!-- EDIT START TIME MODAL (active fast) -->
 <div id="editModal" class="modal hidden">
@@ -231,20 +298,7 @@
   </div>
 </div>
 
-<!-- LocalForage library for persistent IndexedDB storage -->
-<script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
-
-<script>
-  // Request persistent storage protection from Chrome/Android
-  if (navigator.storage && navigator.storage.persist) {
-    navigator.storage.persist().then(granted => {
-      if (granted) {
-        console.log("Storage marked as persistent. Will survive browser data clears.");
-      }
-    });
-  }
-</script>
-
-<script src="app.js"></script>
+<script src="supabase.js"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

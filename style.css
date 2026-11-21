@@ -421,3 +421,50 @@ main{ flex:1; display:flex; flex-direction:column; }
 
 .theme-toggle{ width:100%; }
 .theme-toggle .theme-btn{ flex:1; text-align:center; }
+
+/* Login */
+.login-screen{
+  position:fixed; inset:0; z-index:40; background:var(--bg);
+  display:flex; align-items:center; justify-content:center;
+  padding:calc(20px + var(--safe-top)) 20px calc(20px + var(--safe-bottom));
+  overflow-y:auto;
+}
+.login-card{
+  width:100%; max-width:340px; display:flex; flex-direction:column;
+  background:var(--card); border-radius:20px; padding:24px 20px 12px;
+  box-shadow:var(--shadow);
+}
+.login-icon{ width:64px; height:64px; border-radius:16px; align-self:center; box-shadow:var(--shadow); }
+.login-card h1{ text-align:center; font-size:22px; margin:12px 0 4px; }
+.login-sub{ text-align:center; color:var(--muted); font-size:14px; margin:0 0 18px; }
+.login-card input{
+  width:100%; padding:12px; border-radius:12px; margin-bottom:14px;
+  border:1px solid var(--track); background:var(--card); color:var(--text); font-size:16px;
+  user-select:text;
+}
+.login-card .main-action-btn{ margin-top:4px; }
+.login-msg{ min-height:18px; margin:0 0 8px; font-size:13px; color:var(--danger); text-align:center; }
+.login-msg.ok{ color:var(--muted); }
+
+/* Settings additions */
+.time-select{ display:flex; align-items:center; gap:6px; color:var(--muted); }
+.time-select select{
+  padding:8px 10px; border-radius:10px; font-size:15px; font-weight:600;
+  border:1px solid var(--track); background:var(--card); color:var(--text);
+}
+.account-actions{ margin:12px 0 0; }
+.invite-list{ list-style:none; padding:0; margin:10px 0 0; }
+.invite-list li{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:8px 0; border-top:1px solid var(--track); font-size:14px;
+}
+.invite-list li span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.invite-list li div{ display:flex; flex-shrink:0; }
+.invite-list .text-btn{ padding:6px 8px; font-size:13px; }
+.invite-add{ display:flex; gap:8px; margin-top:10px; }
+.invite-add input{
+  flex:1; min-width:0; padding:10px; border-radius:12px; font-size:14px;
+  border:1px solid var(--track); background:var(--card); color:var(--text); user-select:text;
+}
+.invite-add .chip-btn{ flex:0 0 auto; padding:10px 16px; }
+.main-action-btn:disabled{ opacity:0.6; }

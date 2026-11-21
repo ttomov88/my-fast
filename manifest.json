@@ -1,6 +1,6 @@
 {
-  "name": "Fast Track",
-  "short_name": "Fast Track",
+  "name": "My Fast",
+  "short_name": "My Fast",
   "description": "Simple intermittent fasting timer",
   "start_url": "./index.html",
   "scope": "./",
