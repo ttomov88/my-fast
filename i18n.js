@@ -24,7 +24,8 @@
       // history
       all_time: 'All time', average: 'Average', fasts: 'Fasts', longest: 'Longest',
       month_meta: p => `${p.n} ${pl(p.n, 'fast', 'fasts')} · avg ${p.avg}`, no_fasts: 'No fasts',
-      tap_day: 'Tap a day to see its hours', day_info: p => `${p.day}: `, day_hours: p => `${p.t} fasted`, day_none: 'no fasting',
+      chart_hint: 'Touch the chart and slide your finger to see each day', day_none: 'No fast', pct_of: p => `${p.p}% of ${p.t}`, goal_of: p => `goal ${p.t}`,
+      more_fasts: p => `+${p.n} more`, legend_other: 'Other goal',
       legend_hit: 'Goal met', legend_under: 'Under goal', legend_goal: p => `Goal ${p.t}`,
       add: '+ Add', no_fasts_in: p => `No fasts in ${p.month}`, use_arrows: 'Use the arrows to see other months.',
       goal_note: p => ` · goal ${p.t}`, chart_aria: 'Hours fasted per day',
@@ -125,7 +126,8 @@
 
       all_time: 'Общо', average: 'Средно', fasts: 'Фастове', longest: 'Най-дълъг',
       month_meta: p => `${p.n} ${pl(p.n, 'фаст', 'фаста')} · средно ${p.avg}`, no_fasts: 'Няма фастове',
-      tap_day: 'Докоснете ден, за да видите часовете', day_info: p => `${p.day}: `, day_hours: p => `${p.t} фаст`, day_none: 'без фаст',
+      chart_hint: 'Докоснете графиката и плъзнете пръст, за да видите всеки ден', day_none: 'Без фаст', pct_of: p => `${p.p}% от ${p.t}`, goal_of: p => `цел ${p.t}`,
+      more_fasts: p => `+${p.n} още`, legend_other: 'Друга цел',
       legend_hit: 'Постигната цел', legend_under: 'Под целта', legend_goal: p => `Цел ${p.t}`,
       add: '+ Добави', no_fasts_in: p => `Няма фастове през ${p.month}`, use_arrows: 'Използвайте стрелките за другите месеци.',
       goal_note: p => ` · цел ${p.t}`, chart_aria: 'Часове фаст на ден',

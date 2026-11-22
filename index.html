@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="My Fast">
 
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 
@@ -93,17 +93,18 @@
           </button>
         </div>
         <div class="chart-wrap">
-          <div id="chartBars" class="chart-bars" role="group" aria-label="Hours fasted per day" data-i18n-aria="chart_aria"></div>
+          <div id="chartBars" class="chart-bars" tabindex="0" role="group" aria-label="Hours fasted per day" data-i18n-aria="chart_aria"></div>
           <div class="chart-axis" id="chartAxis" aria-hidden="true">
             <span>24</span><span>18</span><span>12</span><span>6</span><span>0</span>
           </div>
         </div>
         <div id="chartLabels" class="chart-labels" aria-hidden="true"></div>
-        <div id="chartInfo" class="chart-info">Tap a day to see its hours</div>
+        <div id="chartInfo" class="chart-info" aria-live="polite"></div>
         <div class="chart-legend">
           <span><i class="lg-hit"></i><span data-i18n="legend_hit">Goal met</span></span>
           <span><i class="lg-under"></i><span data-i18n="legend_under">Under goal</span></span>
           <span><i class="lg-line"></i><span id="legendGoal">Goal</span></span>
+          <span id="legendOther" class="hidden"><i class="lg-tick"></i><span data-i18n="legend_other">Other goal</span></span>
         </div>
       </div>
 
@@ -387,7 +388,7 @@
 </div>
 
 <script src="supabase.js"></script>
-<script src="i18n.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="i18n.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

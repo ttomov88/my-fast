@@ -1033,10 +1033,6 @@
     return min > 0 ? `${whole}${t('h')} ${min}${t('m')}` : `${whole}${t('h')}`;
   }
 
-  function dateKey(d) {
-    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-  }
-
   // "38h 35m" with small units, so long values stay on one line in the stat cards.
   function statHTML(h) {
     let whole = Math.floor(h), min = Math.round((h - whole) * 60);
@@ -1068,33 +1064,17 @@
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
   }
 
+  // One slot per day of the month; a day holds the fast that started on it (the longest, if more than one).
   function buildMonthBuckets(monthDate) {
-    const year = monthDate.getFullYear();
-    const month = monthDate.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const buckets = [];
-    for (let day = 1; day <= daysInMonth; day++) {
-      const d = new Date(year, month, day);
-      buckets.push({ key: dateKey(d), date: d, value: 0 });
-    }
-    const map = new Map(buckets.map(b => [b.key, b]));
-
-    // Split each fast's hours across every calendar day it actually spans, proportional to how
-    // much of it fell on each day — an overnight fast shows hours on both days.
-    state.history.forEach(entry => {
-      const start = new Date(entry.startISO);
-      const end = new Date(entry.endISO);
-      let cursor = new Date(start);
-      let guard = 0;
-      while (cursor < end && guard < 40) {
-        const dayStart = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
-        const dayEnd = new Date(dayStart.getFullYear(), dayStart.getMonth(), dayStart.getDate() + 1);
-        const segmentEnd = end < dayEnd ? end : dayEnd;
-        const key = dateKey(dayStart);
-        if (map.has(key)) map.get(key).value += (segmentEnd - cursor) / 3600000;
-        cursor = segmentEnd;
-        guard++;
-      }
+    const year = monthDate.getFullYear(), month = monthDate.getMonth();
+    const days = new Date(year, month + 1, 0).getDate();
+    const buckets = Array.from({ length: days }, (_, i) => ({ date: new Date(year, month, i + 1), fast: null, count: 0 }));
+    state.history.forEach(e => {
+      const d = new Date(e.startISO);
+      if (!inMonth(d, monthDate)) return;
+      const b = buckets[d.getDate() - 1];
+      b.count++;
+      if (!b.fast || durH(e) > durH(b.fast)) b.fast = e;
     });
     return buckets;
   }
@@ -1115,60 +1095,143 @@
   el.chartPrevMonthBtn.addEventListener('click', () => goToMonth(-1));
   el.chartNextMonthBtn.addEventListener('click', () => goToMonth(1));
 
+  // ---------- Chart: one bar per fast, slide a finger across it to read each day ----------
   let chartBuckets = [];
-  function showDayInfo(idx) {
-    const b = chartBuckets[idx];
-    el.chartBars.querySelectorAll('.chart-bar-col').forEach((c, i) => c.classList.toggle('sel', i === idx));
-    if (!b) { el.chartInfo.textContent = t('tap_day'); return; }
-    const day = formatRowDate(b.date);
-    el.chartInfo.innerHTML = '';
-    el.chartInfo.append(t('day_info', { day }));
-    const strong = document.createElement('b');
-    strong.textContent = b.value > 0 ? t('day_hours', { t: formatHoursShort(b.value) }) : t('day_none');
-    el.chartInfo.append(strong);
+  let chartSel = -1;
+  let chartMax = 24;
+
+  function infoRing(pct) {
+    if (pct >= 1) return '<span class="ring-avatar done ci-ring" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
+    const C = 2 * Math.PI * 17;
+    return `<span class="ring-avatar ci-ring" aria-hidden="true"><svg viewBox="0 0 40 40"><circle class="ra-track" cx="20" cy="20" r="17"/>` +
+      `<circle class="ra-fill" cx="20" cy="20" r="17" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - Math.max(0.02, pct))).toFixed(1)}"/></svg></span>`;
   }
-  el.chartBars.addEventListener('click', (e) => {
-    const col = e.target.closest('.chart-bar-col');
-    if (col) showDayInfo(Number(col.dataset.idx));
+
+  function showDayInfo(idx) {
+    chartSel = idx;
+    const cols = el.chartBars.querySelectorAll('.chart-bar-col');
+    cols.forEach((c, i) => c.classList.toggle('sel', i === idx));
+    const b = chartBuckets[idx];
+    el.chartInfo.classList.toggle('has-fast', !!(b && b.fast));
+    if (!b) {
+      el.chartInfo.innerHTML = `<span class="ci-hint">${t('chart_hint')}</span>`;
+      return;
+    }
+    const day = formatRowDate(b.date);
+    if (!b.fast) {
+      el.chartInfo.innerHTML = `<span class="ring-avatar ci-ring ci-empty" aria-hidden="true"></span>` +
+        `<span class="ci-text"><b></b><span class="ci-sub"></span></span>`;
+      el.chartInfo.querySelector('b').textContent = day;
+      el.chartInfo.querySelector('.ci-sub').textContent = t('day_none');
+      return;
+    }
+    const f = b.fast, h = durH(f), pct = h / f.targetHours;
+    const start = new Date(f.startISO), end = new Date(f.endISO);
+    el.chartInfo.innerHTML = infoRing(pct) +
+      `<span class="ci-text"><b></b><span class="ci-sub"></span></span>` +
+      `<span class="ci-right"><span class="ci-value"></span><span class="ci-goal"></span></span>`;
+    el.chartInfo.querySelector('b').textContent = day;
+    el.chartInfo.querySelector('.ci-sub').textContent =
+      `${fmtTime(start)} → ${fmtTime(end)}${b.count > 1 ? ' · ' + t('more_fasts', { n: b.count - 1 }) : ''}`;
+    const v = el.chartInfo.querySelector('.ci-value');
+    v.textContent = formatHoursShort(h);
+    v.classList.toggle('v-hit', pct >= 1);
+    el.chartInfo.querySelector('.ci-goal').textContent = pct >= 1
+      ? t('goal_of', { t: formatHoursShort(f.targetHours) })
+      : t('pct_of', { p: Math.floor(pct * 100), t: formatHoursShort(f.targetHours) });
+  }
+
+  // The info card opens the selected fast.
+  el.chartInfo.addEventListener('click', () => {
+    const b = chartBuckets[chartSel];
+    if (b && b.fast) openFastEditModal(b.fast.id);
   });
+
+  // Finger sliding: press anywhere on the chart and move sideways; the day under the finger is shown.
+  // Vertical swipes still scroll the page (touch-action: pan-y).
+  function idxAt(clientX) {
+    const r = el.chartBars.getBoundingClientRect();
+    const n = chartBuckets.length;
+    if (!n || r.width <= 0) return -1;
+    return Math.max(0, Math.min(n - 1, Math.floor(((clientX - r.left) / r.width) * n)));
+  }
+  function scrubTo(clientX) {
+    const i = idxAt(clientX);
+    if (i < 0 || i === chartSel) return;
+    showDayInfo(i);
+    if (chartBuckets[i].fast && navigator.vibrate) { try { navigator.vibrate(6); } catch (e) {} }
+  }
+  let scrubbing = false;
+  el.chartBars.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    scrubbing = true;
+    try { el.chartBars.setPointerCapture(e.pointerId); } catch (err) {}
+    scrubTo(e.clientX);
+  });
+  el.chartBars.addEventListener('pointermove', (e) => { if (scrubbing) scrubTo(e.clientX); });
+  const stopScrub = () => { scrubbing = false; };
+  el.chartBars.addEventListener('pointerup', stopScrub);
+  el.chartBars.addEventListener('pointercancel', stopScrub);
+  el.chartBars.addEventListener('lostpointercapture', stopScrub);
+
+  // Keyboard: arrows move between days, Enter opens the fast.
   el.chartBars.addEventListener('keydown', (e) => {
-    const col = e.target.closest('.chart-bar-col');
-    if (col && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); showDayInfo(Number(col.dataset.idx)); }
+    const n = chartBuckets.length;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const start = chartSel < 0 ? (e.key === 'ArrowRight' ? -1 : n) : chartSel;
+      showDayInfo(Math.max(0, Math.min(n - 1, start + (e.key === 'ArrowRight' ? 1 : -1))));
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      const b = chartBuckets[chartSel];
+      if (b && b.fast) openFastEditModal(b.fast.id);
+    }
   });
 
   function renderChart() {
     const buckets = buildMonthBuckets(currentChartMonth);
     chartBuckets = buckets;
-    const goalHours = Math.min(24, state.lastTargetHours || 16);
+    const usual = usualGoal();
+
+    // Scale: 24h, or more when a fast in this month was longer (in steps of 12h).
+    let longest = 0;
+    buckets.forEach(b => { if (b.fast) longest = Math.max(longest, durH(b.fast), b.fast.targetHours); });
+    chartMax = Math.max(24, Math.ceil(longest / 12) * 12);
+    const y = (h) => Math.max(0, Math.min(100, (h / chartMax) * 100));
 
     el.chartMonthLabel.textContent = `${t('months')[currentChartMonth.getMonth()]} ${currentChartMonth.getFullYear()}`;
     el.chartNextMonthBtn.disabled = isSameMonth(currentChartMonth, new Date());
     el.chartPrevMonthBtn.disabled = currentChartMonth <= firstMonth();
-    el.legendGoal.textContent = t('legend_goal', { t: formatHoursShort(goalHours) });
-    $('chartAxis').querySelectorAll('span').forEach((n, i) => { n.textContent = `${24 - i * 6}${t('h')}`; });
+    el.legendGoal.textContent = t('legend_goal', { t: formatHoursShort(usual) });
+    const otherGoal = buckets.some(b => b.fast && b.fast.targetHours !== usual);
+    $('legendOther').classList.toggle('hidden', !otherGoal);
+    $('chartAxis').querySelectorAll('span').forEach((n, i) => { n.textContent = `${Math.round(chartMax - i * chartMax / 4)}${t('h')}`; });
 
     el.chartBars.innerHTML = '';
     el.chartLabels.innerHTML = '';
-    showDayInfo(-1);
 
     const goalLine = document.createElement('div');
     goalLine.className = 'chart-goal-line';
-    goalLine.style.top = `${(1 - goalHours / 24) * 100}%`;
+    goalLine.style.bottom = `${y(usual)}%`;
     el.chartBars.appendChild(goalLine);
 
     const showEvery = 5;
     buckets.forEach((b, idx) => {
       const col = document.createElement('div');
       col.className = 'chart-bar-col';
-      col.dataset.idx = idx;
-      col.tabIndex = 0;
-      col.setAttribute('role', 'button');
-      col.setAttribute('aria-label', `${formatRowDate(b.date)}: ${formatHoursShort(b.value)}`);
-      const bar = document.createElement('div');
-      const pct = Math.max(0, Math.min(100, (b.value / 24) * 100));
-      bar.className = 'chart-bar' + (b.value > 0 ? (b.value >= goalHours ? ' hit-goal' : ' has-value') : '');
-      bar.style.height = `${pct}%`;
-      col.appendChild(bar);
+      if (b.fast) {
+        const h = durH(b.fast);
+        const bar = document.createElement('div');
+        bar.className = 'chart-bar ' + (h >= b.fast.targetHours ? 'hit-goal' : 'under-goal');
+        bar.style.height = `${y(h)}%`;
+        col.appendChild(bar);
+        if (b.fast.targetHours !== usual) {
+          const tick = document.createElement('div');
+          tick.className = 'chart-goal-tick';
+          tick.style.bottom = `${y(b.fast.targetHours)}%`;
+          col.appendChild(tick);
+        }
+      }
       el.chartBars.appendChild(col);
 
       const label = document.createElement('span');
@@ -1176,6 +1239,11 @@
       label.textContent = (idx === 0 || idx === buckets.length - 1 || fromEnd % showEvery === 0) ? String(b.date.getDate()) : '';
       el.chartLabels.appendChild(label);
     });
+
+    // Start on the newest fast of the month, so the card shows something useful right away.
+    let last = -1;
+    buckets.forEach((b, i) => { if (b.fast) last = i; });
+    showDayInfo(last);
   }
 
   // ---------- Import ----------
@@ -1553,7 +1621,6 @@
     document.querySelectorAll('#langToggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === I.lang));
     $('loginLang').textContent = I.lang === 'bg' ? 'EN' : 'БГ';
     el.registerBtn.textContent = el.inviteCodeField.classList.contains('hidden') ? t('have_invite') : t('create_account');
-    el.chartInfo.textContent = t('tap_day');
   }
   function setLanguage(l) {
     I.set(l);

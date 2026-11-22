@@ -1,8 +1,8 @@
 // My Fast service worker.
 // App code (page, app.js, style.css) is network-first so updates show up right away; icons, the
 // manifest and the Supabase library are cache-first. Bump CACHE_NAME when those change.
-const CACHE_NAME = 'my-fast-v7';
-const CORE = ['./', './index.html', './style.css?v=6', './i18n.js?v=6', './app.js?v=6', './supabase.js', './manifest.json'];
+const CACHE_NAME = 'my-fast-v8';
+const CORE = ['./', './index.html', './style.css?v=7', './i18n.js?v=7', './app.js?v=7', './supabase.js', './manifest.json'];
 const OPTIONAL = [
   './icons/icon-192-v2.png',
   './icons/icon-512-v2.png',
